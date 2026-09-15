@@ -143,16 +143,32 @@ def aggregate_results(results):
             * nli_confidence
         )
 
-        if (
-            "entail" in nli_label
-            and consistency_verdict == "SUPPORT"
+        # ------------------------------------------------
+        # NEUTRAL means the relation extractor found nothing
+        # to check (the claim's predicate -- e.g. "died",
+        # "announced" -- isn't in its known relation vocabulary).
+        # That's an abstention, not a red flag, so we defer to
+        # NLI in that case rather than silently discarding
+        # otherwise-strong entailment/contradiction evidence.
+        #
+        # NOT_SUPPORT means it DID extract relations on both
+        # sides and they disagree (e.g. the Mumbai/Maharashtra
+        # case) -- that's an active structural signal against
+        # trusting NLI, and still blocks scoring, same as before.
+        # ------------------------------------------------
+
+        consistency_abstained = result["claim_relation"] is None
+
+        if "entail" in nli_label and (
+            consistency_verdict == "SUPPORT"
+            or (consistency_verdict == "NEUTRAL" and consistency_abstained)
         ):
             support_score += evidence_weight
             supporting_evidence.append(result)
 
-        elif (
-            "contradict" in nli_label
-            and consistency_verdict == "CONTRADICT"
+        elif "contradict" in nli_label and (
+            consistency_verdict == "CONTRADICT"
+            or (consistency_verdict == "NEUTRAL" and consistency_abstained)
         ):
             contradiction_score += evidence_weight
             contradicting_evidence.append(result)
