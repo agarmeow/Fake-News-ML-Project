@@ -16,6 +16,7 @@ from fact_check.fact_checker import fact_check
 # at the project root (same folder as this app.py) and exposes
 # predict(text, image) -> (label, confidence)
 from multimodal_predict import predict
+from reasoning.llm_reasoner import transcribe_audio, describe_image
 
 
 st.set_page_config(page_title="Fake-News Fact-Checker", layout="centered")
@@ -50,6 +51,9 @@ if "claim_box" not in st.session_state:
 if "last_image_id" not in st.session_state:
     st.session_state.last_image_id = None
 
+if "last_audio_id" not in st.session_state:
+    st.session_state.last_audio_id = None
+
 
 # ------------------------------------------------------------------
 # INPUT
@@ -78,6 +82,19 @@ if uploaded_file is not None:
 
             st.caption(f"(OCR extracted {len(ocr_text)} characters)")
 
+            # OCR found little/no text -- probably a real photo, not a
+            # text screenshot. Fall back to vision-LLM description so
+            # image-only submissions still get something to verify.
+            if len(ocr_text.strip()) < 10:
+                try:
+                    with st.spinner("No readable text -- describing image content..."):
+                        described = describe_image(image)
+                    if described:
+                        st.caption("(Little/no text found -- used image description instead)")
+                        ocr_text = described
+                except Exception as e:
+                    st.caption(f"(Image description unavailable: {e})")
+
             st.session_state.claim_box = ocr_text
             st.session_state.last_image_id = image_id
 
@@ -87,8 +104,34 @@ if uploaded_file is not None:
             # retrying OCR on every rerun of a broken image.
             st.session_state.last_image_id = image_id
 
+st.write("Or record the claim by voice:")
+audio_value = st.audio_input("Record a claim")
+
+if audio_value is not None:
+    audio_bytes = audio_value.getvalue()
+    audio_id = f"{len(audio_bytes)}"
+
+    if st.session_state.last_audio_id != audio_id:
+        try:
+            with st.spinner("Transcribing voice..."):
+                transcript = transcribe_audio(audio_bytes, filename="claim.wav")
+
+            if transcript:
+                st.caption(f'(Transcribed: "{transcript}")')
+                st.session_state.claim_box = transcript
+            else:
+                st.warning(
+                    "Couldn't transcribe (check GROQ_API_KEY is set on this "
+                    "machine). Type the claim manually instead."
+                )
+            st.session_state.last_audio_id = audio_id
+
+        except Exception as e:
+            st.warning(f"Voice transcription failed: {e}")
+            st.session_state.last_audio_id = audio_id
+
 claim_text = st.text_area(
-    "Claim (auto-filled from image text if uploaded -- edit as needed):",
+    "Claim (auto-filled from image/voice if provided -- edit as needed):",
     key="claim_box",
     height=100,
 )
@@ -133,6 +176,19 @@ if analyze:
                 f"support score {result['support_score']:.2f}, "
                 f"contradiction score {result['contradiction_score']:.2f}"
             )
+
+            if result.get("llm_reasoning"):
+                if result.get("verdict_source") == "llm_fallback":
+                    st.info(
+                        f"**LLM arbitration (Groq gpt-oss)** -- rule-based "
+                        f"pipeline was inconclusive, so this verdict comes "
+                        f"from the LLM reading the same evidence: "
+                        f"{result['llm_reasoning']}"
+                    )
+                else:
+                    st.caption(
+                        f"LLM's read on the same evidence: {result['llm_reasoning']}"
+                    )
 
             with st.expander(f"Evidence considered ({len(result['evidence'])})"):
 

@@ -19,6 +19,7 @@ from reasoning.nli_reasoner import (
 from verification.consistency_checker import (
     check_consistency
 )
+from reasoning.llm_reasoner import llm_verify
 
 from sentence_transformers import SentenceTransformer
 
@@ -334,6 +335,36 @@ def fact_check(claim):
         print("\n[4/6] Skipped competing-fact search (already decisive).")
 
     # --------------------------------------------------
+    # STEP 4.5: LLM ARBITRATION (Groq gpt-oss) -- additive only.
+    # Reads the SAME evidence already retrieved above (no new search).
+    # Never overrides a decisive rule-based verdict -- only steps in
+    # when the rule-based pipeline is UNVERIFIABLE. Falls back
+    # silently to the rule-based verdict if Groq is unreachable, the
+    # key is missing, or the response doesn't parse.
+    # --------------------------------------------------
+
+    llm_result = None
+    llm_reasoning = None
+    verdict_source = "rule_based"
+
+    try:
+        llm_result = llm_verify(claim, results)
+    except Exception as e:
+        print(f"\n[LLM] Groq call failed, falling back to rule-based verdict: {e}")
+        llm_result = None
+
+    if llm_result:
+        llm_reasoning = llm_result["reasoning"]
+        if verdict == "UNVERIFIABLE" and llm_result["verdict"] != "UNVERIFIABLE":
+            verdict = llm_result["verdict"]
+            confidence = llm_result["confidence"]
+            verdict_source = "llm_fallback"
+            print(
+                f"\n[LLM] Rule-based pipeline was UNVERIFIABLE; "
+                f"adopting LLM verdict: {verdict} ({confidence:.2f})"
+            )
+
+    # --------------------------------------------------
     # STEP 5/6: DISPLAY FINAL RESULT
     # --------------------------------------------------
 
@@ -382,6 +413,8 @@ def fact_check(claim):
         "support_score": support_score,
         "contradiction_score": contradiction_score,
         "evidence": results,
+        "llm_reasoning": llm_reasoning,
+        "verdict_source": verdict_source,
     }
 
 
