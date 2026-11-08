@@ -17,6 +17,7 @@ from fact_check.fact_checker import fact_check
 # predict(text, image) -> (label, confidence)
 from multimodal_predict import predict
 from reasoning.llm_reasoner import transcribe_audio, describe_image
+from reasoning.claim_normalizer import normalize_claim
 
 
 st.set_page_config(page_title="Fake-News Fact-Checker", layout="centered")
@@ -95,7 +96,10 @@ if uploaded_file is not None:
                 except Exception as e:
                     st.caption(f"(Image description unavailable: {e})")
 
-            st.session_state.claim_box = ocr_text
+            # T1: Normalize OCR or describe_image text
+            norm_res = normalize_claim(ocr_text)
+            st.session_state.claim_box = norm_res["claim"]
+            st.caption(f"Original: {ocr_text} | language: {norm_res['language']}")
             st.session_state.last_image_id = image_id
 
         except Exception as e:
@@ -117,8 +121,9 @@ if audio_value is not None:
                 transcript = transcribe_audio(audio_bytes, filename="claim.wav")
 
             if transcript:
-                st.caption(f'(Transcribed: "{transcript}")')
-                st.session_state.claim_box = transcript
+                norm_res = normalize_claim(transcript)
+                st.session_state.claim_box = norm_res["claim"]
+                st.caption(f"Original: {transcript} | language: {norm_res['language']}")
             else:
                 st.warning(
                     "Couldn't transcribe (check GROQ_API_KEY is set on this "
@@ -155,8 +160,12 @@ if analyze:
 
     if claim_text.strip():
 
+        norm_typed = normalize_claim(claim_text)
+        final_claim = norm_typed["claim"]
+        st.info(f"Checking claim: {final_claim}")
+
         with st.spinner("Verifying claim against evidence..."):
-            result = fact_check(claim_text)
+            result = fact_check(final_claim)
 
         st.subheader("Final Verdict")
 
