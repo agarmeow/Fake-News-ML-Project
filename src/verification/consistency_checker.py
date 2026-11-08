@@ -78,6 +78,24 @@ NEGATION_WORDS = {
     "hadn't",
 }
 
+ALIASES = {
+    "new delhi": "delhi",
+    "bombay": "mumbai",
+    "calcutta": "kolkata",
+    "madras": "chennai",
+    "bangalore": "bengaluru",
+    "gurgaon": "gurugram",
+    "orissa": "odisha",
+    "benares": "varanasi",
+}
+
+def resolve_alias(term):
+    """Normalize aliases for entities/subjects/objects."""
+    if not term:
+        return term
+    t = term.lower().strip()
+    return ALIASES.get(t, t)
+
 
 # ============================================================
 # LOAD SPACY
@@ -622,8 +640,8 @@ def check_entity_consistency(
     if not evidence_entities:
         return 0.0
 
-    claim_set = set(claim_entities)
-    evidence_set = set(evidence_entities)
+    claim_set = set(resolve_alias(e) for e in claim_entities)
+    evidence_set = set(resolve_alias(e) for e in evidence_entities)
 
     shared = claim_set.intersection(
         evidence_set
@@ -665,11 +683,11 @@ def compare_relations(
     claim_rel = claim_relation["relation"]
     evidence_rel = evidence_relation["relation"]
 
-    claim_subject = claim_relation["subject"]
-    claim_object = claim_relation["object"]
+    claim_subject = resolve_alias(claim_relation["subject"])
+    claim_object = resolve_alias(claim_relation["object"])
 
-    evidence_subject = evidence_relation["subject"]
-    evidence_object = evidence_relation["object"]
+    evidence_subject = resolve_alias(evidence_relation["subject"])
+    evidence_object = resolve_alias(evidence_relation["object"])
 
     # --------------------------------------------------------
     # Exact same relationship
@@ -999,6 +1017,17 @@ def run_tests():
 
             "expected":
                 "CONTRADICT",
+        },
+
+        {
+            "claim":
+                "India's capital is Delhi",
+
+            "evidence":
+                "New Delhi is the national capital of India.",
+
+            "expected":
+                "SUPPORT",
         },
     ]
 
