@@ -1,5 +1,6 @@
 import sys
 import os
+import math
 from functools import lru_cache
 
 # Allow imports from src/
@@ -113,6 +114,7 @@ def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model
 def aggregate_results(results):
     """
     Combine per-evidence results into a final verdict.
+    Note: confidence is an evidence score, not a calibrated probability.
 
     Same decision rule as before:
       - SUPPORT needs NLI entailment AND consistency == SUPPORT
@@ -203,11 +205,17 @@ def aggregate_results(results):
 
     elif support_score > contradiction_score:
         verdict = "TRUE"
-        confidence = support_score / total_decisive_score
+        dominant = support_score
+        agreement = dominant / total_decisive_score
+        strength = 1.0 - math.exp(-total_decisive_score)
+        confidence = min(0.99, agreement * strength)
 
     elif contradiction_score > support_score:
         verdict = "FALSE"
-        confidence = contradiction_score / total_decisive_score
+        dominant = contradiction_score
+        agreement = dominant / total_decisive_score
+        strength = 1.0 - math.exp(-total_decisive_score)
+        confidence = min(0.99, agreement * strength)
 
     else:
         verdict = "UNVERIFIABLE"
@@ -377,7 +385,7 @@ def fact_check(claim):
         llm_reasoning = llm_result["reasoning"]
         if verdict == "UNVERIFIABLE" and llm_result["verdict"] != "UNVERIFIABLE":
             verdict = llm_result["verdict"]
-            confidence = llm_result["confidence"]
+            confidence = min(llm_result["confidence"], 0.85)
             verdict_source = "llm_fallback"
             print(
                 f"\n[LLM] Rule-based pipeline was UNVERIFIABLE; "
