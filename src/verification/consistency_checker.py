@@ -591,6 +591,44 @@ def extract_verb_relation(doc):
 # MAIN RELATION EXTRACTION
 # ============================================================
 
+GENERIC_NOUNS = {
+    "state",
+    "province",
+    "presidency",
+    "district",
+    "region",
+    "country",
+    "city",
+    "territory",
+    "republic",
+    "union",
+}
+
+def resolve_generic_term(term, doc):
+    """
+    If an extracted subject/object is a generic noun,
+    use the preceding proper noun.
+    """
+    if not term:
+        return term
+    t = term.lower().strip()
+    words = t.split()
+    if t in GENERIC_NOUNS or (len(words) > 1 and words[-1] in GENERIC_NOUNS):
+        target = words[-1]
+        for token in doc:
+            if token.text.lower() == target:
+                for i in range(token.i - 1, -1, -1):
+                    if token.doc[i].pos_ == "PROPN":
+                        start = i
+                        while start > 0 and token.doc[start - 1].pos_ == "PROPN":
+                            start -= 1
+                        return normalize_entity(" ".join(token.doc[j].text for j in range(start, i + 1)))
+                    if token.doc[i].pos_ in {"PUNCT", "VERB", "AUX"}:
+                        break
+        if len(words) > 1:
+            return " ".join(words[:-1])
+    return term
+
 def extract_relation(text):
     """
     Extract a normalized factual relationship.
@@ -606,12 +644,12 @@ def extract_relation(text):
 
     relation = extract_capital_relation(doc)
 
-    if relation is not None:
-        return relation
-
-    relation = extract_verb_relation(doc)
+    if relation is None:
+        relation = extract_verb_relation(doc)
 
     if relation is not None:
+        relation["subject"] = resolve_generic_term(relation["subject"], doc)
+        relation["object"] = resolve_generic_term(relation["object"], doc)
         return relation
 
     return None
@@ -1025,6 +1063,28 @@ def run_tests():
 
             "evidence":
                 "New Delhi is the national capital of India.",
+
+            "expected":
+                "SUPPORT",
+        },
+
+        {
+            "claim":
+                "Mumbai is the capital city of Maharashtra state.",
+
+            "evidence":
+                "Mumbai is the capital of Maharashtra.",
+
+            "expected":
+                "SUPPORT",
+        },
+
+        {
+            "claim":
+                "Bombay was the capital of the Bombay Presidency.",
+
+            "evidence":
+                "Bombay was the capital of the Bombay Presidency.",
 
             "expected":
                 "SUPPORT",
