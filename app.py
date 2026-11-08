@@ -171,6 +171,9 @@ if analyze:
 
         if result:
 
+            if result.get("conflict"):
+                st.warning("Rule-based pipeline and LLM disagree - review the evidence below")
+
             verdict = result["verdict"]
 
             if verdict == "TRUE":

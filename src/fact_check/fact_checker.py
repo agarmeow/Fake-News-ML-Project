@@ -374,6 +374,8 @@ def fact_check(claim):
     llm_result = None
     llm_reasoning = None
     verdict_source = "rule_based"
+    conflict = False
+    llm_verdict = None
 
     try:
         llm_result = llm_verify(claim, results)
@@ -383,8 +385,15 @@ def fact_check(claim):
 
     if llm_result:
         llm_reasoning = llm_result["reasoning"]
-        if verdict == "UNVERIFIABLE" and llm_result["verdict"] != "UNVERIFIABLE":
-            verdict = llm_result["verdict"]
+        llm_v = llm_result.get("verdict")
+        llm_verdict = llm_v
+
+        # T8: Conflict flag if rule-based verdict is TRUE/FALSE and llm returns opposite decisive verdict
+        if verdict in {"TRUE", "FALSE"} and llm_v in {"TRUE", "FALSE"} and verdict != llm_v:
+            conflict = True
+
+        if verdict == "UNVERIFIABLE" and llm_v != "UNVERIFIABLE":
+            verdict = llm_v
             confidence = min(llm_result["confidence"], 0.85)
             verdict_source = "llm_fallback"
             print(
@@ -434,7 +443,7 @@ def fact_check(claim):
 
     print("\n" + "=" * 80)
 
-    return {
+    ret = {
         "claim": claim,
         "verdict": verdict,
         "confidence": confidence,
@@ -444,6 +453,11 @@ def fact_check(claim):
         "llm_reasoning": llm_reasoning,
         "verdict_source": verdict_source,
     }
+    if conflict:
+        ret["conflict"] = True
+        ret["llm_verdict"] = llm_verdict
+
+    return ret
 
 
 def main():
