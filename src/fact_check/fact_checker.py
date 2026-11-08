@@ -17,7 +17,8 @@ from reasoning.nli_reasoner import (
 )
 
 from verification.consistency_checker import (
-    check_consistency
+    check_consistency,
+    RELATION_MAP
 )
 from reasoning.llm_reasoner import llm_verify
 
@@ -94,6 +95,7 @@ def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model
             "claim_relation": consistency_result["claim_relation"],
             "evidence_relation": consistency_result["evidence_relation"],
             "evidence": item["text"],
+            "claim": claim,
         })
 
     return results
@@ -159,6 +161,16 @@ def aggregate_results(results):
         # ------------------------------------------------
 
         consistency_abstained = result["claim_relation"] is None
+
+        # T4: Keyword guard - if claim_relation is None but claim contains a trigger word
+        # of any existing relation pattern, treat as NOT abstained.
+        if consistency_abstained:
+            claim_str = result.get("claim", "")
+            if claim_str:
+                claim_tokens = {w.lower().strip(".,'\"?!;:()[]{}") for w in claim_str.split()}
+                trigger_words = set(RELATION_MAP.keys())
+                if claim_tokens.intersection(trigger_words):
+                    consistency_abstained = False
 
         if "entail" in nli_label and (
             consistency_verdict == "SUPPORT"
