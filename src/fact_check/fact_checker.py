@@ -1,5 +1,6 @@
 import sys
 import os
+from functools import lru_cache
 
 # Allow imports from src/
 sys.path.append(
@@ -37,6 +38,14 @@ QUALITY_MAP = {
 }
 
 RELEVANCE_THRESHOLD = 0.35
+
+
+@lru_cache(maxsize=1)
+def get_cached_models():
+    """Load and cache SentenceTransformer and NLI model once."""
+    semantic_model = SentenceTransformer(SEMANTIC_MODEL_NAME)
+    tokenizer, nli_model = load_nli_model()
+    return semantic_model, tokenizer, nli_model
 
 
 def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model):
@@ -266,8 +275,7 @@ def fact_check(claim):
 
     print("\n[2/6] Loading models...")
 
-    semantic_model = SentenceTransformer(SEMANTIC_MODEL_NAME)
-    tokenizer, nli_model = load_nli_model()
+    semantic_model, tokenizer, nli_model = get_cached_models()
 
     # --------------------------------------------------
     # STEP 3: EVALUATE PRIMARY EVIDENCE
