@@ -2,7 +2,10 @@ import os
 import json
 import requests
 import base64
+import urllib3
 from io import BytesIO
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_CHAT_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
@@ -80,7 +83,7 @@ def llm_verify(claim, evidence_results):
         "Content-Type": "application/json",
     }
 
-    response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=30)
+    response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=30, verify=False)
     response.raise_for_status()
 
     raw = response.json()["choices"][0]["message"]["content"].strip()
@@ -125,7 +128,7 @@ def transcribe_audio(audio_bytes, filename="voice_claim.wav", language=None):
     files = {"file": (filename, audio_bytes)}
 
     response = requests.post(
-        TRANSCRIBE_URL, headers=headers, data=data, files=files, timeout=60
+        TRANSCRIBE_URL, headers=headers, data=data, files=files, timeout=60, verify=False
     )
     response.raise_for_status()
 
@@ -184,7 +187,7 @@ def describe_image(pil_image):
         "Content-Type": "application/json",
     }
 
-    response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=30)
+    response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=30, verify=False)
     response.raise_for_status()
 
     text = response.json()["choices"][0]["message"]["content"].strip()

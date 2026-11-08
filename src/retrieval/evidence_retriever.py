@@ -3,9 +3,12 @@ import time
 import json
 import hashlib
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ============================================================
 # Cache configuration
@@ -165,7 +168,8 @@ def search_web(query, max_results=5):
                 url,
                 data={"q": query},
                 headers=headers,
-                timeout=15
+                timeout=15,
+                verify=False
             )
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, "html.parser")
@@ -229,7 +233,8 @@ def fetch_page_text(url, max_chars=5000):
         response = requests.get(
             url,
             headers=headers,
-            timeout=8
+            timeout=8,
+            verify=False
         )
         response.raise_for_status()
 

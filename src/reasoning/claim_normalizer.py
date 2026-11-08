@@ -54,7 +54,7 @@ def normalize_claim(raw):
     }
 
     try:
-        response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=10)
+        response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=10, verify=False)
         response.raise_for_status()
 
         raw_resp = response.json()["choices"][0]["message"]["content"].strip()

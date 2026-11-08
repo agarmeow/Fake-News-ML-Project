@@ -3,6 +3,9 @@ import os
 import math
 from functools import lru_cache
 
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 # Allow imports from src/
 sys.path.append(
     os.path.abspath(
