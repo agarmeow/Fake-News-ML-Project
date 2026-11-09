@@ -46,25 +46,22 @@ LABEL2ID = {"ordinary": 0, "satire": 1, "misleading": 2, "clickbait": 3}
 
 class FakeTypeDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length=64):
-        self.texts = list(texts)
-        self.labels = list(labels)
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-
-    def __len__(self):
-        return len(self.texts)
-
-    def __getitem__(self, idx):
-        text = str(self.texts[idx])
-        encoding = self.tokenizer(
-            text,
+        print(f"Pre-tokenizing {len(texts)} samples (max_length={max_length})...")
+        self.encodings = tokenizer(
+            list(texts),
             truncation=True,
             padding="max_length",
-            max_length=self.max_length,
+            max_length=max_length,
             return_tensors="pt"
         )
-        item = {k: v.squeeze(0) for k, v in encoding.items()}
-        item["labels"] = torch.tensor(int(self.labels[idx]), dtype=torch.long)
+        self.labels = torch.tensor(list(labels), dtype=torch.long)
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        item = {k: v[idx] for k, v in self.encodings.items()}
+        item["labels"] = self.labels[idx]
         return item
 
 
@@ -122,10 +119,13 @@ def load_and_preprocess_data():
         stratify=temp_df["label"]
     )
 
+    test_df = test_df.reset_index(drop=True)
+    test_df.to_csv(RESULTS_DIR / "faketype_test_split.csv", index=False)
+
     return (
         train_df.reset_index(drop=True),
         val_df.reset_index(drop=True),
-        test_df.reset_index(drop=True)
+        test_df
     )
 
 
@@ -215,6 +215,7 @@ def run_training(train_df, val_df, test_df):
         num_train_epochs=2,
         weight_decay=0.01,
         fp16=(device == "cuda"),
+        dataloader_pin_memory=True,
         logging_steps=50,
         load_best_model_at_end=True,
         metric_for_best_model="f1",

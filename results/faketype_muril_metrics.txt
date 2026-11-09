@@ -1,0 +1,24 @@
+MURIL FAKETYPE CLASSIFIER TEST METRICS
+==================================================
+Accuracy: 0.6800
+Macro Precision: 0.6813
+Macro Recall: 0.6800
+Macro F1: 0.6802
+
+Per-class Metrics:
+  ordinary    : P=0.6571, R=0.6860, F1=0.6712
+  satire      : P=0.7792, R=0.7200, F1=0.7484
+  misleading  : P=0.5720, R=0.5640, F1=0.5680
+  clickbait   : P=0.7170, R=0.7500, F1=0.7331
+
+Classification Report:
+              precision    recall  f1-score   support
+
+    ordinary       0.66      0.69      0.67       500
+      satire       0.78      0.72      0.75       500
+  misleading       0.57      0.56      0.57       500
+   clickbait       0.72      0.75      0.73       500
+
+    accuracy                           0.68      2000
+   macro avg       0.68      0.68      0.68      2000
+weighted avg       0.68      0.68      0.68      2000

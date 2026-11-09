@@ -1,0 +1,5 @@
+,pred_ordinary,pred_satire,pred_misleading,pred_clickbait
+true_ordinary,343,41,93,23
+true_satire,44,360,51,45
+true_misleading,116,22,282,80
+true_clickbait,19,39,67,375
