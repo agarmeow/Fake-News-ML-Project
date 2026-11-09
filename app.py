@@ -10,6 +10,7 @@ sys.path.append(
 import streamlit as st
 from PIL import Image
 import numpy as np
+import torch
 import easyocr
 
 from fact_check.fact_checker import fact_check
@@ -36,6 +37,47 @@ st.caption(
 @st.cache_resource
 def get_ocr_reader():
     return easyocr.Reader(["en"], gpu=True)
+
+
+FAKETYPE_ID2LABEL = {0: "ordinary", 1: "satire", 2: "misleading", 3: "clickbait"}
+
+
+@st.cache_resource
+def get_faketype_muril():
+    model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "faketype_muril")
+    if not os.path.exists(model_dir):
+        return None, None
+    try:
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+        model.eval()
+        return tokenizer, model
+    except Exception as e:
+        print(f"Warning: could not load faketype_muril: {e}")
+        return None, None
+
+
+def predict_faketype_muril(text):
+    tokenizer, model = get_faketype_muril()
+    if tokenizer is None or model is None:
+        return "unclear", 0.0
+    device = next(model.parameters()).device
+    inputs = tokenizer(
+        str(text),
+        truncation=True,
+        padding=True,
+        max_length=64,
+        return_tensors="pt"
+    ).to(device)
+    with torch.inference_mode():
+        outputs = model(**inputs)
+        probs = torch.softmax(outputs.logits, dim=-1)[0]
+        pred_idx = torch.argmax(probs).item()
+        confidence = probs[pred_idx].item()
+        label = FAKETYPE_ID2LABEL.get(pred_idx, "unclear")
+    return label, confidence
 
 
 @st.cache_resource
@@ -158,7 +200,11 @@ claim_text = st.text_area(
     height=100,
 )
 
-analyze = st.button("Analyze")
+col_btn, col_chk = st.columns([1, 2])
+with col_btn:
+    analyze = st.button("Analyze")
+with col_chk:
+    analyze_type_anyway = st.checkbox("Analyze type anyway", value=False)
 
 
 # ------------------------------------------------------------------
@@ -192,15 +238,29 @@ if analyze:
                 st.warning("Rule-based pipeline and LLM disagree - review the evidence below")
 
             verdict = result["verdict"]
+            conf_val = result.get("confidence", 0.0)
+            if conf_val < 0.30:
+                strength_label = "weak evidence"
+            elif conf_val <= 0.60:
+                strength_label = "moderate"
+            else:
+                strength_label = "strong"
 
             if verdict == "TRUE":
-                st.success(f"**{verdict}** -- {result['confidence'] * 100:.0f}% confidence")
+                if strength_label == "weak evidence":
+                    st.warning(f"**{verdict}** -- {strength_label}")
+                else:
+                    st.success(f"**{verdict}** -- {strength_label}")
             elif verdict == "FALSE":
-                st.error(f"**{verdict}** -- {result['confidence'] * 100:.0f}% confidence")
+                if strength_label == "weak evidence":
+                    st.warning(f"**{verdict}** -- {strength_label}")
+                else:
+                    st.error(f"**{verdict}** -- {strength_label}")
             else:
                 st.warning(f"**{verdict}**")
 
             st.caption(
+                f"Confidence: {conf_val * 100:.1f}% ({strength_label}) | "
                 f"Based on {len(result['evidence'])} evidence sources -- "
                 f"support score {result['support_score']:.2f}, "
                 f"contradiction score {result['contradiction_score']:.2f}"
@@ -231,6 +291,48 @@ if analyze:
                     st.write(ev["evidence"][:300] + "...")
                     st.write(ev["url"])
                     st.markdown("---")
+
+            # ----------------------------------------------------------
+            # G5: Fake-type analysis block
+            # ----------------------------------------------------------
+            should_analyze_faketype = (
+                verdict == "FALSE"
+                or result.get("conflict") is True
+                or analyze_type_anyway
+            )
+
+            if should_analyze_faketype:
+                st.subheader("Fake-Type Analysis")
+                st.caption("Trained on Reddit titles (Fakeddit); style signal, not a fact check.")
+
+                with st.spinner("Analyzing headline/text style..."):
+                    muril_label, muril_conf = predict_faketype_muril(final_claim)
+
+                    from reasoning.faketype_llm import classify_fake_type
+                    try:
+                        groq_res = classify_fake_type(final_claim)
+                        groq_label = groq_res.get("label", "unclear")
+                        groq_rationale = groq_res.get("rationale", "")
+                    except Exception as e:
+                        groq_label = "unclear"
+                        groq_rationale = f"Unavailable: {e}"
+
+                    if muril_conf < 0.5 and groq_label == "unclear":
+                        st.info("**Can't tell** -- signals are inconclusive.")
+                    else:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown(f"**MuRIL (Learned Model):** `{muril_label}` ({muril_conf * 100:.1f}%)")
+                        with col2:
+                            st.markdown(f"**Groq Few-Shot LLM:** `{groq_label}`")
+
+                        if groq_rationale:
+                            st.caption(f"LLM Rationale: {groq_rationale}")
+
+                        if muril_label == groq_label and muril_label != "unclear":
+                            st.success("Both classifiers agree.")
+                        else:
+                            st.warning("Classifiers disagree.")
 
         else:
             st.write("No evidence could be retrieved for this claim.")
