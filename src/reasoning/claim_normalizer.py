@@ -64,6 +64,7 @@ def normalize_claim(raw):
         "4. Output exactly ONE declarative claim.\n"
         "5. Never add facts or change meaning.\n"
         "6. If the input is already a clean English claim, return it unchanged.\n"
+        "7. Keep names of people, places, organizations, and brands exactly as written in the input (preserving their spelling, e.g., 'Borcelle', 'Jamie') unless they are clearly garbled OCR; never respell, drop letters from, or alter a proper name that looks plausible.\n"
         "Respond with a JSON object in this format:\n"
         '{"claim": "<normalized English claim>", "language": "<detected input language>", "translated": <true|false>}'
     )
@@ -102,7 +103,7 @@ def normalize_claim(raw):
                     {
                         "role": "user",
                         "content": (
-                            f"Clean this text into a single factual claim as JSON "
+                            f"Clean this text into a single factual claim. Keep names of people, places, organizations, and brands exactly as written unless garbled. Output as JSON "
                             f'{{"claim": "<cleaned English claim>", "language": "English", "translated": false}}:\n{raw}'
                         ),
                     }
