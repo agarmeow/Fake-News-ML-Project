@@ -26,7 +26,8 @@ from retrieval.semantic_ranker import semantic_rank_evidence
 
 from reasoning.nli_reasoner import (
     load_nli_model,
-    classify_claim_evidence
+    classify_claim_evidence,
+    classify_claim_evidence_batch
 )
 
 from verification.consistency_checker import (
@@ -98,18 +99,20 @@ def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model
 
     top_evidence = ranked_evidence[:5]
 
+    t_nli = time.time()
+    passages = [item["text"] for item in top_evidence]
+    nli_results = classify_claim_evidence_batch(
+        claim,
+        passages,
+        tokenizer,
+        nli_model
+    )
+    STAGE_TIMINGS["nli_loop"] += (time.time() - t_nli)
+
     results = []
 
-    for item in top_evidence:
-
-        t_nli = time.time()
-        nli_result = classify_claim_evidence(
-            claim,
-            item["text"],
-            tokenizer,
-            nli_model
-        )
-        STAGE_TIMINGS["nli_loop"] += (time.time() - t_nli)
+    for idx, item in enumerate(top_evidence):
+        nli_result = nli_results[idx]
 
         t_cons = time.time()
         consistency_result = check_consistency(

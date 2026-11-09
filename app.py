@@ -36,6 +36,21 @@ def get_ocr_reader():
     return easyocr.Reader(["en"], gpu=True)
 
 
+@st.cache_resource
+def preload_all_models():
+    """Preload NLI, SentenceTransformer, and CLIP models once at app startup."""
+    from fact_check.fact_checker import get_cached_models
+    get_cached_models()
+    try:
+        import multimodal_predict
+    except Exception as e:
+        print(f"Warning: CLIP preload failed: {e}")
+    return True
+
+
+preload_all_models()
+
+
 def run_ocr(pil_image):
     reader = get_ocr_reader()
     results = reader.readtext(np.array(pil_image))
