@@ -1,10 +1,34 @@
 import os
+import re
 import json
 import requests
+import urllib3
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 GROQ_CHAT_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+
+def _lenient_json_parse(text):
+    if not text:
+        return None
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text.split("\n", 1)[-1]
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    m = re.search(r"\{[\s\S]*?\}", text)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except Exception:
+            pass
+    return None
 
 
 def normalize_claim(raw):
@@ -19,24 +43,34 @@ def normalize_claim(raw):
         "source": "raw"
     }
 
-    if not raw or not raw.strip() or not GROQ_API_KEY:
+    if not raw or not str(raw).strip():
         return default_res
+
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return default_res
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
 
     system_prompt = (
         "You are a claim normalization assistant. Your task is to process input text and return a JSON object.\n"
         "Instructions:\n"
         "1. Remove OCR junk, site names, watermarks, and boilerplate.\n"
-        "2. Fix obvious typos and OCR errors (e.g., 'capital city in Mumbai' -> 'capital city is Mumbai').\n"
+        "2. Fix obvious typos and OCR errors.\n"
         "3. Translate to English if needed.\n"
         "4. Output exactly ONE declarative claim.\n"
         "5. Never add facts or change meaning.\n"
         "6. If the input is already a clean English claim, return it unchanged.\n"
-        "Respond ONLY with a valid JSON object in this exact schema:\n"
+        "Respond with a JSON object in this format:\n"
         '{"claim": "<normalized English claim>", "language": "<detected input language>", "translated": <true|false>}'
     )
 
     user_prompt = f"Raw text: {raw}"
 
+    # Primary attempt: response_format json_object with sufficient token budget
     payload = {
         "model": GROQ_CHAT_MODEL,
         "messages": [
@@ -44,38 +78,56 @@ def normalize_claim(raw):
             {"role": "user", "content": user_prompt},
         ],
         "temperature": 0.1,
-        "max_completion_tokens": 200,
+        "max_completion_tokens": 1024,
         "response_format": {"type": "json_object"},
     }
 
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
+    parsed = None
     try:
-        response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=10, verify=False)
-        response.raise_for_status()
+        response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=12, verify=False)
+        if response.status_code == 200:
+            raw_resp = response.json()["choices"][0]["message"]["content"].strip()
+            parsed = _lenient_json_parse(raw_resp)
+        else:
+            print(f"[Normalizer 400/Error] status={response.status_code} body={response.text}")
+    except Exception as e:
+        print(f"[Normalizer Primary Error] {e}")
 
-        raw_resp = response.json()["choices"][0]["message"]["content"].strip()
-        if raw_resp.startswith("```"):
-            raw_resp = raw_resp.strip("`")
-            if raw_resp.lower().startswith("json"):
-                raw_resp = raw_resp.split("\n", 1)[-1]
+    # Retry once with minimal prompt and lenient parse if primary failed or parse failed
+    if not parsed or not parsed.get("claim"):
+        try:
+            minimal_payload = {
+                "model": GROQ_CHAT_MODEL,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Clean this text into a single factual claim as JSON "
+                            f'{{"claim": "<cleaned English claim>", "language": "English", "translated": false}}:\n{raw}'
+                        ),
+                    }
+                ],
+                "temperature": 0.1,
+                "max_completion_tokens": 1024,
+            }
+            retry_resp = requests.post(CHAT_URL, headers=headers, json=minimal_payload, timeout=12, verify=False)
+            if retry_resp.status_code == 200:
+                raw_resp2 = retry_resp.json()["choices"][0]["message"]["content"].strip()
+                parsed = _lenient_json_parse(raw_resp2)
+        except Exception:
+            pass
 
-        data = json.loads(raw_resp)
-        normalized_claim = str(data.get("claim", "")).strip()
-        if not normalized_claim:
-            return default_res
+    if parsed and parsed.get("claim"):
+        norm_claim = str(parsed["claim"]).strip()
+        if norm_claim:
+            lang = str(parsed.get("language", "English")).strip()
+            trans = bool(parsed.get("translated", False))
+            return {
+                "claim": norm_claim,
+                "language": lang,
+                "translated": trans,
+                "source": "groq",
+            }
 
-        language = str(data.get("language", "unknown")).strip()
-        translated = bool(data.get("translated", False))
-
-        return {
-            "claim": normalized_claim,
-            "language": language,
-            "translated": translated,
-            "source": "groq"
-        }
-    except Exception:
-        return default_res
+    # (c) if the model returns an empty claim, keep raw
+    return default_res
