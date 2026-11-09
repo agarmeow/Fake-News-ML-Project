@@ -1,6 +1,9 @@
 import sys
 import os
+import time
 import math
+import re
+import difflib
 from functools import lru_cache
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -13,7 +16,12 @@ sys.path.append(
     )
 )
 
-from retrieval.evidence_retriever import retrieve_evidence
+from retrieval.evidence_retriever import (
+    retrieve_evidence,
+    CACHE_STATS,
+    TIMING_STATS as RETRIEVER_TIMINGS,
+    reset_stats as reset_retriever_stats
+)
 from retrieval.semantic_ranker import semantic_rank_evidence
 
 from reasoning.nli_reasoner import (
@@ -23,7 +31,8 @@ from reasoning.nli_reasoner import (
 
 from verification.consistency_checker import (
     check_consistency,
-    RELATION_MAP
+    RELATION_MAP,
+    nlp
 )
 from reasoning.llm_reasoner import llm_verify
 
@@ -34,6 +43,16 @@ SEMANTIC_MODEL_NAME = (
     "sentence-transformers/"
     "paraphrase-multilingual-MiniLM-L12-v2"
 )
+
+STAGE_TIMINGS = {
+    "search_web": 0.0,
+    "page_fetch": 0.0,
+    "semantic_ranking": 0.0,
+    "nli_loop": 0.0,
+    "consistency_loop": 0.0,
+    "llm_verify": 0.0,
+    "model_loading": 0.0,
+}
 
 QUALITY_MAP = {
     "high": 1.0,
@@ -66,11 +85,13 @@ def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model
     if not evidence_list:
         return []
 
+    t_sem = time.time()
     ranked_evidence = semantic_rank_evidence(
         claim,
         evidence_list,
         semantic_model
     )
+    STAGE_TIMINGS["semantic_ranking"] += (time.time() - t_sem)
 
     if not ranked_evidence:
         return []
@@ -81,17 +102,21 @@ def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model
 
     for item in top_evidence:
 
+        t_nli = time.time()
         nli_result = classify_claim_evidence(
             claim,
             item["text"],
             tokenizer,
             nli_model
         )
+        STAGE_TIMINGS["nli_loop"] += (time.time() - t_nli)
 
+        t_cons = time.time()
         consistency_result = check_consistency(
             claim,
             item["text"]
         )
+        STAGE_TIMINGS["consistency_loop"] += (time.time() - t_cons)
 
         results.append({
             "title": item["title"],
@@ -114,6 +139,58 @@ def evaluate_evidence(claim, evidence_list, tokenizer, nli_model, semantic_model
     return results
 
 
+def get_primary_entity(claim):
+    """
+    Primary entity = first PERSON entity of the claim (spaCy),
+    else the first named entity (GPE/ORG/LOC/EVENT/WORK_OF_ART/NORP).
+    If no named entity, returns None.
+    """
+    if not claim:
+        return None
+    doc = nlp(claim)
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            return ent
+    allowed_types = {"GPE", "ORG", "LOC", "EVENT", "WORK_OF_ART", "NORP"}
+    for ent in doc.ents:
+        if ent.label_ in allowed_types:
+            return ent
+    return None
+
+
+def check_entity_in_passage(primary_entity, passage):
+    """
+    Check if ALL tokens of primary_entity appear in the passage.
+    Case-insensitive, allows per-token fuzzy ratio >= 0.9 for OCR typos.
+    A first-name-only match is not enough.
+    """
+    if primary_entity is None:
+        return True
+    if not passage:
+        return False
+
+    passage_lower = passage.lower()
+    ent_tokens = [t.text.lower() for t in primary_entity if t.text.isalnum()]
+    if not ent_tokens:
+        return True
+
+    passage_words = set(re.findall(r"\b[a-z0-9]+\b", passage_lower))
+
+    for et in ent_tokens:
+        if et in passage_words or re.search(r"\b" + re.escape(et) + r"\b", passage_lower):
+            continue
+        matched_fuzzy = False
+        for pw in passage_words:
+            if abs(len(pw) - len(et)) <= 2:
+                if difflib.SequenceMatcher(None, et, pw).ratio() >= 0.9:
+                    matched_fuzzy = True
+                    break
+        if not matched_fuzzy:
+            return False
+
+    return True
+
+
 def aggregate_results(results):
     """
     Combine per-evidence results into a final verdict.
@@ -132,7 +209,11 @@ def aggregate_results(results):
     supporting_evidence = []
     contradicting_evidence = []
 
+    claim_str = results[0]["claim"] if results and "claim" in results[0] else ""
+    primary_entity = get_primary_entity(claim_str) if claim_str else None
+
     for result in results:
+        result["counted_as"] = "none"
 
         semantic_similarity = max(result["semantic_similarity"], 0.0)
 
@@ -152,6 +233,13 @@ def aggregate_results(results):
         consistency_verdict = result["consistency_verdict"]
 
         if semantic_similarity < RELEVANCE_THRESHOLD:
+            continue
+
+        # F6: Primary entity guard
+        passage = result.get("evidence", "")
+        entity_guard_ok = check_entity_in_passage(primary_entity, passage)
+        result["entity_guard_ok"] = entity_guard_ok
+        if not entity_guard_ok:
             continue
 
         evidence_weight = (
@@ -179,9 +267,9 @@ def aggregate_results(results):
         # T4: Keyword guard - if claim_relation is None but claim contains a trigger word
         # of any existing relation pattern, treat as NOT abstained.
         if consistency_abstained:
-            claim_str = result.get("claim", "")
-            if claim_str:
-                claim_tokens = {w.lower().strip(".,'\"?!;:()[]{}") for w in claim_str.split()}
+            c_str = result.get("claim", "")
+            if c_str:
+                claim_tokens = {w.lower().strip(".,'\"?!;:()[]{}") for w in c_str.split()}
                 trigger_words = set(RELATION_MAP.keys())
                 if claim_tokens.intersection(trigger_words):
                     consistency_abstained = False
@@ -192,6 +280,7 @@ def aggregate_results(results):
         ):
             support_score += evidence_weight
             supporting_evidence.append(result)
+            result["counted_as"] = "support"
 
         elif "contradict" in nli_label and (
             consistency_verdict == "CONTRADICT"
@@ -199,6 +288,7 @@ def aggregate_results(results):
         ):
             contradiction_score += evidence_weight
             contradicting_evidence.append(result)
+            result["counted_as"] = "contradict"
 
     total_decisive_score = support_score + contradiction_score
 
@@ -261,6 +351,10 @@ def build_alternative_query(claim_relation):
 
 def fact_check(claim):
 
+    for k in STAGE_TIMINGS:
+        STAGE_TIMINGS[k] = 0.0
+    reset_retriever_stats()
+
     print("\n" + "=" * 80)
     print("FACT-CHECKING CLAIM")
     print("=" * 80)
@@ -286,7 +380,9 @@ def fact_check(claim):
 
     print("\n[2/6] Loading models...")
 
+    t_load = time.time()
     semantic_model, tokenizer, nli_model = get_cached_models()
+    STAGE_TIMINGS["model_loading"] = time.time() - t_load
 
     # --------------------------------------------------
     # STEP 3: EVALUATE PRIMARY EVIDENCE
@@ -380,11 +476,13 @@ def fact_check(claim):
     conflict = False
     llm_verdict = None
 
+    t_llm = time.time()
     try:
         llm_result = llm_verify(claim, results)
     except Exception as e:
         print(f"\n[LLM] Groq call failed, falling back to rule-based verdict: {e}")
         llm_result = None
+    STAGE_TIMINGS["llm_verify"] = time.time() - t_llm
 
     if llm_result:
         llm_reasoning = llm_result["reasoning"]
@@ -446,6 +544,18 @@ def fact_check(claim):
 
     print("\n" + "=" * 80)
 
+    STAGE_TIMINGS["search_web"] = RETRIEVER_TIMINGS["search_web"]
+    STAGE_TIMINGS["page_fetch"] = RETRIEVER_TIMINGS["page_fetch"]
+
+    if os.environ.get("FC_TIMING") == "1":
+        print("\n" + "=" * 50)
+        print("PER-STAGE TIMINGS (FC_TIMING=1)")
+        print("=" * 50)
+        for stage, sec in STAGE_TIMINGS.items():
+            print(f"  {stage:<20}: {sec:.4f}s")
+        print(f"  {'cache_stats':<20}: {CACHE_STATS}")
+        print("=" * 50)
+
     ret = {
         "claim": claim,
         "verdict": verdict,
@@ -455,6 +565,8 @@ def fact_check(claim):
         "evidence": results,
         "llm_reasoning": llm_reasoning,
         "verdict_source": verdict_source,
+        "timings": dict(STAGE_TIMINGS),
+        "cache_stats": dict(CACHE_STATS),
     }
     if conflict:
         ret["conflict"] = True

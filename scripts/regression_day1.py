@@ -49,13 +49,19 @@ TEST_CLAIMS = [
     },
     {
         "claim": "Music icon Dolly Parton has died at 80",
-        "expected_check": lambda r: r and r.get("verdict") == "TRUE",
-        "desc": "-> TRUE"
+        "eval_fn": lambda r: (
+            "PASS" if r and r.get("verdict") == "TRUE" and r.get("verdict_source") in {"rule_based", "llm_fallback"}
+            else "FAIL"
+        ),
+        "desc": "-> TRUE (rule_based or llm_fallback)"
     },
     {
         "claim": "Jamie Chastain to tour Liverpool with Borcelle in 2023",
-        "expected_check": lambda r: r and r.get("verdict") != "TRUE",
-        "desc": "-> never TRUE"
+        "eval_fn": lambda r: (
+            "PASS" if r and r.get("verdict") == "UNVERIFIABLE"
+            else "FAIL"
+        ),
+        "desc": "-> UNVERIFIABLE (FALSE or TRUE = FAIL)"
     },
 ]
 
@@ -80,10 +86,15 @@ def run_regression():
         conf = res.get("confidence", 0.0) if res else 0.0
         v_src = res.get("verdict_source", "N/A") if res else "N/A"
 
-        passed = item["expected_check"](res)
-        if not passed:
-            all_passed = False
-        status = "PASS" if passed else "FAIL"
+        if "eval_fn" in item:
+            status = item["eval_fn"](res)
+            if status == "FAIL":
+                all_passed = False
+        else:
+            passed = item["expected_check"](res)
+            if not passed:
+                all_passed = False
+            status = "PASS" if passed else "FAIL"
 
         print(f"{claim:<55} | {verdict:<13} | {conf:<6.2f} | {v_src:<12} | {dt:<6.2f} | {status}")
         results.append({
