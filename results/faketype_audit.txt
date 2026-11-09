@@ -1,0 +1,22 @@
+============================================================
+FAKETYPE DATASET AUDIT & TOP FEATURES PER CLASS
+============================================================
+
+SPLIT COUNTS:
+  Train (80%) : Total=16000 | ordinary: 4000, satire: 4000, misleading: 4000, clickbait: 4000
+  Val (10%)   : Total=2000 | ordinary: 500, satire: 500, misleading: 500, clickbait: 500
+  Test (10%)  : Total=2000 | ordinary: 500, satire: 500, misleading: 500, clickbait: 500
+
+TOP 20 TF-IDF+LR FEATURES PER CLASS:
+
+Class 0 (ordinary):
+police, player, says, yearold, car, shaped, egg, woman, restaurant, years, pattern, building, sign, tree, formed, bbc, rescued, looks like, jumping, homeless
+
+Class 1 (satire):
+news, request, report, quiz, blog, album, self, nation, rac, titled, potential, self titled, tips, life, ep, selftitled, questions, onion, mans, ftw
+
+Class 2 (misleading):
+circa, happy, hitler, bc, colourized, soldier, nazi, ad, shocked, little guy, rare, looks, japanese, vietnam, war, colorised, ca, guy, surprised, footage
+
+Class 3 (clickbait):
+thats, let, hes, did, shes, dont, gotta, need, really, needs, original, think, gonna, try, heres, remember, photoshop, bring, im, strikes
