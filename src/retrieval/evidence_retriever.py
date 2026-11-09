@@ -21,6 +21,27 @@ SEARCH_CACHE_DIR = os.path.join(CACHE_DIR, "search")
 PAGES_CACHE_DIR = os.path.join(CACHE_DIR, "pages")
 CACHE_TTL = 24 * 3600  # 24 hours
 
+CACHE_STATS = {
+    "search_hit": 0,
+    "search_miss": 0,
+    "page_hit": 0,
+    "page_miss": 0,
+}
+
+TIMING_STATS = {
+    "search_web": 0.0,
+    "page_fetch": 0.0,
+}
+
+
+def reset_stats():
+    CACHE_STATS["search_hit"] = 0
+    CACHE_STATS["search_miss"] = 0
+    CACHE_STATS["page_hit"] = 0
+    CACHE_STATS["page_miss"] = 0
+    TIMING_STATS["search_web"] = 0.0
+    TIMING_STATS["page_fetch"] = 0.0
+
 
 def _is_cache_enabled():
     return os.environ.get("CACHE_DISABLE") != "1"
@@ -142,15 +163,29 @@ def get_source_quality(url):
 
 def search_web(query, max_results=5):
     """Search the web and return candidate sources."""
+    t0 = time.time()
     query = str(query)[:200]
 
-    cache_file = _get_cache_path(SEARCH_CACHE_DIR, f"{query}_{max_results}", "json")
+    cache_key = f"{query.strip().lower()}_{max_results}"
+    cache_file = _get_cache_path(SEARCH_CACHE_DIR, cache_key, "json")
     cached_data = _load_cache(cache_file)
+    if not cached_data:
+        legacy_file = _get_cache_path(SEARCH_CACHE_DIR, f"{query}_{max_results}", "json")
+        cached_data = _load_cache(legacy_file)
+
     if cached_data:
+        CACHE_STATS["search_hit"] += 1
+        if os.environ.get("FC_TIMING") == "1":
+            print(f"[CACHE HIT] search_web: {query[:50]}")
         try:
+            TIMING_STATS["search_web"] += (time.time() - t0)
             return json.loads(cached_data)
         except Exception:
             pass
+    else:
+        CACHE_STATS["search_miss"] += 1
+        if os.environ.get("FC_TIMING") == "1":
+            print(f"[CACHE MISS] search_web: {query[:50]}")
 
     url = "https://html.duckduckgo.com/html/"
     headers = {
@@ -205,6 +240,7 @@ def search_web(query, max_results=5):
     if results:
         _save_cache(cache_file, json.dumps(results))
 
+    TIMING_STATS["search_web"] += (time.time() - t0)
     return results
 
 
@@ -217,10 +253,18 @@ def fetch_page_text(url, max_chars=5000):
     if not url:
         return ""
 
-    cache_file = _get_cache_path(PAGES_CACHE_DIR, url, "txt")
+    url_clean = url.strip()
+    cache_file = _get_cache_path(PAGES_CACHE_DIR, url_clean, "txt")
     cached_text = _load_cache(cache_file)
     if cached_text is not None:
+        CACHE_STATS["page_hit"] += 1
+        if os.environ.get("FC_TIMING") == "1":
+            print(f"[CACHE HIT] page: {url_clean[:50]}")
         return cached_text[:max_chars]
+
+    CACHE_STATS["page_miss"] += 1
+    if os.environ.get("FC_TIMING") == "1":
+        print(f"[CACHE MISS] page: {url_clean[:50]}")
 
     headers = {
         "User-Agent": (
@@ -296,8 +340,10 @@ def retrieve_evidence(
             "source_quality_score": score
         }
 
+    t_fetch = time.time()
     with ThreadPoolExecutor(max_workers=5) as executor:
         evidence = list(executor.map(_process_result, search_results))
+    TIMING_STATS["page_fetch"] += (time.time() - t_fetch)
 
     # Rank by source quality
     evidence.sort(
