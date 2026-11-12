@@ -1,0 +1,4 @@
+text,gold,pred,trained label+conf,LLM label+cues
+FDA adds rare vision-loss warning to popular GLP-1 drugs,ordinary,satire,satire (0.905),ordinary [FDA; adds warning; rare vision-loss; popular GLP-1 drugs]
+US grocery stores are selling 3D-printed salmon manufactured by an Israeli company,misleading,clickbait,clickbait (0.851),ordinary [3D-printed salmon; Israeli company; grocery stores; factual reporting on food technology]
+McDonald's lost a major lawsuit to TV chef Jamie Oliver over toxic food claims,misleading,ordinary,ordinary (0.567),ordinary [lawsuit; Jamie Oliver; McDonald's; fictitious but plausible news format]
