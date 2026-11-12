@@ -4,6 +4,14 @@ import re
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Configure huggingface_hub with hard 60s timeout and SSL workaround for Windows
+import httpx
+from huggingface_hub.utils import _http
+_http.set_client_factory(lambda: httpx.Client(verify=False, follow_redirects=True, timeout=60.0))
+
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
