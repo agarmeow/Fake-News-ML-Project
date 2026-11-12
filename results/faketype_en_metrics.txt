@@ -1,0 +1,20 @@
+============================================================
+ROBERTA-BASE FAKETYPE ENGLISH (CONTINUED TRAINING) TEST METRICS
+============================================================
+
+Test Accuracy:   0.9104
+Macro Precision: 0.9121
+Macro Recall:    0.9104
+Macro F1:        0.9105
+
+Per-Class Test Metrics:
+  plain       : P=0.8527, R=0.8900, F1=0.8709
+  satire      : P=0.9513, R=0.8788, F1=0.9136
+  clickbait   : P=0.9322, R=0.9625, F1=0.9471
+
+Validation Accuracy by Digit Presence per Class:
+Class        With Digit (Acc / N)     Without Digit (Acc / N)
+------------------------------------------------------------
+plain        0.8507 (n=134)           0.8949 (n=666)          
+satire       0.8750 (n=112)           0.8881 (n=688)          
+clickbait    0.9824 (n=340)           0.9370 (n=460)          
