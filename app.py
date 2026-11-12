@@ -303,36 +303,34 @@ if analyze:
 
             if should_analyze_faketype:
                 st.subheader("Fake-Type Analysis")
-                st.caption("Trained on Reddit titles (Fakeddit); style signal, not a fact check.")
+                lang = str(norm_typed.get("language", "en")).strip().lower()
+                if lang != "en":
+                    st.info("Fake-type analysis supports English only.")
+                else:
+                    with st.spinner("Analyzing fake-type category..."):
+                        from reasoning.faketype_pipeline import classify_type
+                        try:
+                            pt_res = classify_type(final_claim, verifier_fn=lambda _: result)
+                            pipe_label = pt_res["label"]
+                            source = pt_res["source"]
+                            trained_lbl = pt_res["trained_label"]
+                            trained_conf = pt_res["trained_conf"]
+                            llm_lbl = pt_res["llm_label"]
+                            llm_conf = pt_res["llm_conf"]
+                            uncertain = pt_res["uncertain"]
 
-                with st.spinner("Analyzing headline/text style..."):
-                    muril_label, muril_conf = predict_faketype_muril(final_claim)
+                            st.markdown(f"**Pipeline Label:** `{pipe_label}` (Decided by: `{source}`)")
+                            if uncertain:
+                                st.warning("uncertain")
 
-                    from reasoning.faketype_llm import classify_fake_type
-                    try:
-                        groq_res = classify_fake_type(final_claim)
-                        groq_label = groq_res.get("label", "unclear")
-                        groq_rationale = groq_res.get("rationale", "")
-                    except Exception as e:
-                        groq_label = "unclear"
-                        groq_rationale = f"Unavailable: {e}"
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown(f"**Trained Model:** `{trained_lbl}` ({trained_conf * 100:.1f}%)")
+                            with col2:
+                                st.markdown(f"**Groq LLM:** `{llm_lbl}` ({llm_conf * 100:.1f}%)")
 
-                    if muril_conf < 0.5 and groq_label == "unclear":
-                        st.info("**Can't tell** -- signals are inconclusive.")
-                    else:
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown(f"**MuRIL (Learned Model):** `{muril_label}` ({muril_conf * 100:.1f}%)")
-                        with col2:
-                            st.markdown(f"**Groq Few-Shot LLM:** `{groq_label}`")
-
-                        if groq_rationale:
-                            st.caption(f"LLM Rationale: {groq_rationale}")
-
-                        if muril_label == groq_label and muril_label != "unclear":
-                            st.success("Both classifiers agree.")
-                        else:
-                            st.warning("Classifiers disagree.")
+                        except Exception as e:
+                            st.error(f"Fake-type analysis error: {e}")
 
         else:
             st.write("No evidence could be retrieved for this claim.")
