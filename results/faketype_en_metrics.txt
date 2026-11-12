@@ -1,3 +1,4 @@
+Model Dir: models/faketype_en_continued
 ============================================================
 ROBERTA-BASE FAKETYPE ENGLISH (CONTINUED TRAINING) TEST METRICS
 ============================================================
