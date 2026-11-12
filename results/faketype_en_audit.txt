@@ -1,6 +1,21 @@
 ============================================================
-FAKETYPE ENGLISH DATASET AUDIT & TOP FEATURES
+FAKETYPE ENGLISH DATASET AUDIT (A2b REBUILD)
 ============================================================
+
+PER-SOURCE CASING STATS (BEFORE PREP_TEXT):
+Source                     Any Uppercase   Title Case
+-------------------------------------------------------
+Onion                      0.0000          0.0000    
+HuffPost                   0.0000          0.0000    
+Chakraborty-clickbait      1.0000          0.7076    
+Chakraborty-nonclickbait   0.9995          0.0617    
+
+PER-CLASS DIGIT STATS (BEFORE PREP_TEXT):
+Class        Contains Digit   Starts with Digit
+--------------------------------------------------
+plain        0.1660           0.0376         
+satire       0.1465           0.0150         
+clickbait    0.4421           0.3750         
 
 PER-CLASS COUNTS PER SPLIT:
 Class        Train     Val    Test    Total
@@ -9,18 +24,18 @@ plain        6400      800    800     8000
 satire       6400      800    800     8000   
 clickbait    6400      800    800     8000   
 
-MEAN WORD LENGTH PER CLASS:
-  plain       : 9.02 words
+MEAN WORD LENGTH PER CLASS (PREPPED):
+  plain       : 9.00 words
   satire      : 10.39 words
-  clickbait   : 9.96 words
+  clickbait   : 9.93 words
 
 TOP 20 TF-IDF+LR FEATURES PER CLASS:
 
 [plain]:
-uk, australian, trump, says, china, iraq, kills, wins, australia, police, pakistan, climate, 2014, microsoft, shares, president, california, win, accused, attack
+uk, trump, police, kills, says, dies, pakistan, wins, england, china, iraq, australia, australian, iran, charged, president, bomb, killed, profit, zealand
 
 [satire]:
-man, nation, report, area, introduces, local, study, announces, self, god, coworker, americans, struggling, kavanaugh, romney, forced, vows, hoping, bush, asks
+man, nation, report, area, introduces, announces, local, study, americans, romney, forced, self, god, kavanaugh, child, scientists, unveils, hoping, vows, breaking
 
 [clickbait]:
-21, 17, 19, guess, 23, know, 18, 2015, people, character, based, 15, 22, 27, actually, 16, things, pictures, 13, 29
+21, 17, 19, 23, guess, know, 15, based, 18, actually, character, 22, 27, people, remember, 16, 13, things, buzzfeed, best
