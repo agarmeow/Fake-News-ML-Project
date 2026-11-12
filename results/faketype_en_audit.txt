@@ -1,0 +1,26 @@
+============================================================
+FAKETYPE ENGLISH DATASET AUDIT & TOP FEATURES
+============================================================
+
+PER-CLASS COUNTS PER SPLIT:
+Class        Train     Val    Test    Total
+---------------------------------------------
+plain        6400      800    800     8000   
+satire       6400      800    800     8000   
+clickbait    6400      800    800     8000   
+
+MEAN WORD LENGTH PER CLASS:
+  plain       : 9.02 words
+  satire      : 10.39 words
+  clickbait   : 9.96 words
+
+TOP 20 TF-IDF+LR FEATURES PER CLASS:
+
+[plain]:
+uk, australian, trump, says, china, iraq, kills, wins, australia, police, pakistan, climate, 2014, microsoft, shares, president, california, win, accused, attack
+
+[satire]:
+man, nation, report, area, introduces, local, study, announces, self, god, coworker, americans, struggling, kavanaugh, romney, forced, vows, hoping, bush, asks
+
+[clickbait]:
+21, 17, 19, guess, 23, know, 18, 2015, people, character, based, 15, 22, 27, actually, 16, things, pictures, 13, 29
