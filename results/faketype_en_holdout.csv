@@ -1,0 +1,25 @@
+text,gold,llm_pred,llm_conf,v1_pred,v1_source,v1_verdict,v2_pred,v2_source,v2_verdict
+London court finds 2 Iranian men guilty of spying for Iran,ordinary,ordinary,0.97,ordinary,verifier,True,ordinary,verifier,True
+France blames Iran for a cyberattack that heated supermarket refrigerators,ordinary,satire,0.98,satire,llm,,satire,llm,
+Russia and Ukraine agree to a large prisoner exchange as talks end with no major breakthrough,ordinary,ordinary,0.96,ordinary,verifier,True,ordinary,verifier,True
+"US returns over $12 billion in oil proceeds to Venezuela since Maduro's ouster, report says",ordinary,ordinary,0.95,ordinary,verifier,True,ordinary,verifier,True
+China's passenger car exports surge in October as domestic demand remains weak,ordinary,ordinary,0.97,ordinary,verifier,True,ordinary,verifier,True
+UN lowers forecast for global economic growth in 2026,ordinary,ordinary,0.97,ordinary,verifier,True,ordinary,verifier,True
+"Quebec language laws now require all 2026 hurricanes to be named ""Jean-Pierre""",satire,satire,0.98,satire,both,,satire,both,
+Report: Elon Musk sabotaged Ukrainian Starlink by switching them to Rogers,satire,misleading,0.92,ordinary,verifier,True,ordinary,verifier,True
+EU asks Canada to join in hopes they take some stuff Britain left at their office,satire,satire,0.98,satire,both,,satire,both,
+Montreal halts road construction until everyone can enjoy it again,satire,ordinary,0.92,satire,trained,,satire,trained,
+2026 showrunners caught reusing 2025 scripts,satire,ordinary,0.92,satire,trained,None,satire,trained,None
+Florida Credits Record-Low Crime Rate To Having Chased Away All The Democrats,satire,satire,0.98,satire,both,None,satire,both,None
+78 Photos Of Real-Life Moments That Seem Too Strange To Be True,clickbait,clickbait,0.98,clickbait,both,None,clickbait,both,None
+127 Hilariously Bad Designs That Somehow Got Approved By Someone With Eyes,clickbait,clickbait,0.95,clickbait,both,None,clickbait,both,None
+"40 Chilling Wikipedia Rabbit Holes That Are Fascinating, Disturbing, And Impossible To Stop Reading",clickbait,clickbait,0.98,clickbait,both,None,clickbait,both,None
+65 Terrifying Events And Photos That Might Haunt Your Thoughts For Days,clickbait,clickbait,0.98,clickbait,both,None,clickbait,both,None
+Study reveals the magic three-word phrase that will make people think you're more likable and competent,clickbait,clickbait,0.95,satire,trained,None,satire,trained,None
+Woman ticketed for driving with phone in her 'right hand' has a huge surprise for police officer,clickbait,clickbait,0.95,clickbait,llm,None,clickbait,llm,None
+India was invited for the first time by 37 democracies to chair IDEA,misleading,ordinary,0.95,ordinary,default,None,ordinary,default,None
+"Brain blood clots are 112,000% more likely to occur after COVID-19 vaccine than after the flu vaccine",misleading,misleading,0.98,misleading,llm,None,misleading,llm,None
+"Akshay Kumar is backing the Army Welfare Battle Casualties Fund, which will be used to purchase weapons",misleading,ordinary,0.95,ordinary,default,None,ordinary,default,None
+Abdul El-Sayed supports defunding the police and emptying prisons,misleading,ordinary,0.92,ordinary,default,None,ordinary,default,None
+"Videos from Dhaka, Bangladesh, are being shared as incidents from West Bengal ahead of the 2026 elections",misleading,misleading,0.98,misleading,llm,None,misleading,llm,None
+Melinda Gates made a $US30 million payment directly to Jacinda Ardern for personal use,misleading,misleading,0.98,clickbait,trained,None,clickbait,trained,None
