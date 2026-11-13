@@ -118,6 +118,7 @@ def classify(text: str, model: str = None) -> dict:
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     for current_model in models_to_try:
+        model_not_found = False
         for attempt in range(3):
             payload = {
                 "model": current_model,
@@ -146,6 +147,7 @@ def classify(text: str, model: str = None) -> dict:
 
                 if resp.status_code in (404, 403) or "model_not_found" in resp.text:
                     print(f"Warning: Model {current_model} returned {resp.status_code}. Falling back to next model.")
+                    model_not_found = True
                     break  # Fall back to next model in models_to_try
 
                 resp.raise_for_status()
@@ -174,7 +176,7 @@ def classify(text: str, model: str = None) -> dict:
                         cues = [cues]
 
                     CONSECUTIVE_FAILURES = 0
-                    return {"label": lbl, "confidence": conf, "cues": cues}
+                    return {"label": lbl, "confidence": conf, "cues": cues, "model": data.get("model", current_model)}
 
             except requests.exceptions.Timeout:
                 wait_s = min(2 ** (attempt + 1) * 2, 20)
@@ -182,6 +184,10 @@ def classify(text: str, model: str = None) -> dict:
             except Exception as e:
                 wait_s = min(2 ** (attempt + 1) * 2, 20)
                 time.sleep(wait_s)
+
+        if not model_not_found and model:
+            # Explicit model was requested and did not 404/403; do not fall back on transient failures
+            break
 
         CONSECUTIVE_FAILURES += 1
         if CONSECUTIVE_FAILURES >= 5:
