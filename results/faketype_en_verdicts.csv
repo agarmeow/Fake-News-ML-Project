@@ -1,0 +1,77 @@
+split,text,gold,verdict,verdict_source
+dev,Russia and Ukraine hold nearly 4 hours of US-mediated talks in Abu Dhabi,ordinary,TRUE,rule_based
+dev,Portugal closes all schools and non-essential services due to a major Atlantic storm,ordinary,TRUE,rule_based
+dev,A missing teen is found alive after 6 days in the Australian woodlands,ordinary,TRUE,rule_based
+dev,FDA adds rare vision-loss warning to popular GLP-1 drugs,ordinary,TRUE,rule_based
+dev,"UN peacekeepers failed to protect civilians before South Sudan massacre, Amnesty says",ordinary,TRUE,rule_based
+dev,"Van crashes on mountain road in Nepal, 10 killed and 5 injured",ordinary,TRUE,rule_based
+dev,Thick smog shrouds New Delhi after Diwali firecrackers add to seasonal pollution,ordinary,TRUE,rule_based
+dev,Nation Saddened To Learn Iran May Not Actually Nuke LA,satire,TRUE,rule_based
+dev,South Pole Elves Making Cheap Knockoff Toys For Half The Price,satire,TRUE,rule_based
+dev,Breakthrough As Scientists At University Of Michigan Develop Ability To Travel Back In Time One Second,satire,UNVERIFIABLE,rule_based
+dev,Brown University Hires Chief Wiggum To Track Down Shooter,satire,TRUE,rule_based
+dev,Nation's Murderers Excited To Learn Killing Legal If You Say You Were Sad,satire,FALSE,rule_based
+dev,Trump Imposes Tariffs On Canada After He Runs Out Of Maple Syrup,satire,UNVERIFIABLE,rule_based
+dev,Republicans Begin To Wonder If They Were Supposed To Have Done Anything Before Midterm Elections,satire,UNVERIFIABLE,rule_based
+dev,25 rumors about Pete Hegseth we've fact-checked,clickbait,TRUE,rule_based
+dev,19 Denzel Washington rumors that had the internet completely fooled,clickbait,TRUE,llm_fallback
+dev,"17 viral SpaceX stories that sound fake, number 11 will leave you speechless",clickbait,FALSE,rule_based
+dev,9 tales of historical horrors that will keep you awake all night,clickbait,TRUE,rule_based
+dev,14 everyday airport habits that immediately give away first-time flyers,clickbait,FALSE,rule_based
+dev,The one hidden setting on your smart TV that stops it from tracking everything you watch,clickbait,FALSE,rule_based
+dev,11 vintage kitchen gadgets from the 1980s that are now worth a small fortune,clickbait,UNVERIFIABLE,rule_based
+dev,"More than 20,000 fraudulent ballots cast for Democrats were uncovered in an FBI raid of a warehouse in Houston",misleading,TRUE,rule_based
+dev,"Footage of the Nov. 1 plane crash in Palm Beach County, Florida, was 100% generated with artificial intelligence",misleading,FALSE,rule_based
+dev,US Space Force took over FAA air traffic control systems across the country,misleading,UNVERIFIABLE,rule_based
+dev,Popular candy brands are secretly using lab-grown chocolate in retail bars,misleading,FALSE,llm_fallback
+dev,US grocery stores are selling 3D-printed salmon manufactured by an Israeli company,misleading,FALSE,llm_fallback
+dev,Texas data center caused every calf birthed on a nearby ranch to be stillborn,misleading,TRUE,rule_based
+dev,McDonald's lost a major lawsuit to TV chef Jamie Oliver over toxic food claims,misleading,UNVERIFIABLE,rule_based
+test,Finance Ministry issues revised guidelines on corporate tax filing deadlines for FY 2026-27,ordinary,UNVERIFIABLE,rule_based
+test,Municipal corporation initiates road widening project along the eastern corridor to ease traffic,ordinary,UNVERIFIABLE,rule_based
+test,Meteorological department forecasts light to moderate showers across northern coastal belts,ordinary,UNVERIFIABLE,rule_based
+test,National highway authority opens newly constructed four-lane bypass to heavy vehicular traffic,ordinary,FALSE,llm_fallback
+test,Civil Aviation Ministry reviews passenger safety protocols across regional airports,ordinary,UNVERIFIABLE,rule_based
+test,State government signs preliminary pact with renewable energy firm to set up 500 MW solar plant,ordinary,FALSE,rule_based
+test,Department of Telecommunications conducts scheduled technical trials for 6G frequency bands,ordinary,UNVERIFIABLE,rule_based
+test,Port trust authorities report five percent year-on-year increase in overall container cargo handling,ordinary,TRUE,rule_based
+test,Central university announces admission schedule for postgraduate academic courses beginning July,ordinary,UNVERIFIABLE,rule_based
+test,Urban planning commission holds public consultation regarding new metropolitan transit zones,ordinary,TRUE,llm_fallback
+test,Agricultural board releases updated wholesale procurement prices for seasonal winter crops,ordinary,UNVERIFIABLE,rule_based
+test,State electricity regulatory commission approves revised industrial power tariffs for coming fiscal year,ordinary,TRUE,llm_fallback
+test,Employee diligently reads 40-page software policy before clicking 'I Agree' in record 0.4 seconds,satire,UNVERIFIABLE,rule_based
+test,Study finds 95 percent of calendar invites exist solely to plan another meeting,satire,UNVERIFIABLE,rule_based
+test,Local man bravely survives 12 minutes in grocery store without looking at smartphone screen,satire,FALSE,rule_based
+test,Smart refrigerator refuses to open door until owner admits to eating shredded cheese at 3 AM,satire,UNVERIFIABLE,rule_based
+test,Company replaces entire executive team with single automated email asking 'Any updates on this?',satire,FALSE,rule_based
+test,Area commuter spends 45 minutes finding perfect parking spot located two feet closer to entrance,satire,FALSE,llm_fallback
+test,Houseplant enters vegetative shock after receiving praise instead of promised tap water,satire,FALSE,rule_based
+test,Gym enthusiast packs gym bag with military precision before choosing couch for fourth night in a row,satire,UNVERIFIABLE,rule_based
+test,Tech startup proudly announces revolutionary subscription service that delivers oxygen to user lungs,satire,UNVERIFIABLE,rule_based
+test,Man who bought running shoes in 2021 confirms he is still mentally preparing for the first jog,satire,FALSE,rule_based
+test,Cat delivers formal 14-page performance appraisal expressing severe dissatisfaction with dry food timing,satire,FALSE,rule_based
+test,Office worker celebrates massive productivity surge by spending three hours reorganizing desktop folders,satire,FALSE,rule_based
+test,She rubbed this common kitchen spice on her cutting board and the transformation left everyone stunned,clickbait,FALSE,rule_based
+test,10 bizarre hotel room secrets housekeeping staff never tell guests. Number 4 is terrifying!,clickbait,UNVERIFIABLE,rule_based
+test,"If you still store milk on the refrigerator door shelf, you need to read this immediately",clickbait,FALSE,rule_based
+test,This grandmother solved a decades-old puzzle in 5 minutes and genius professors cannot believe it,clickbait,FALSE,rule_based
+test,Never throw away used tea bags! Here are 7 mind-blowing life hacks you wish you knew earlier,clickbait,FALSE,rule_based
+test,"Passengers were stunned when the pilot suddenly made this shocking announcement at 35,000 feet",clickbait,UNVERIFIABLE,rule_based
+test,12 child actors who vanished from Hollywood completely. You won't believe what number 6 is doing now!,clickbait,FALSE,rule_based
+test,Is your phone secretly recording your conversations? Look for this tiny hidden icon right now,clickbait,UNVERIFIABLE,rule_based
+test,Doctors warn: doing this one common thing right after morning coffee destroys your metabolism,clickbait,TRUE,rule_based
+test,"Tourists thought they discovered an abandoned cave, but what lurked inside gave them goosebumps",clickbait,UNVERIFIABLE,rule_based
+test,Put a bay leaf in your wallet tonight and see what unbelievable miracle happens tomorrow morning,clickbait,FALSE,rule_based
+test,8 things flight attendants immediately notice about you the second you step onboard,clickbait,UNVERIFIABLE,rule_based
+test,Leaked internal memo reveals global health agency planning mandatory digital biometric water meters by 2027,misleading,FALSE,rule_based
+test,Viral video proves ancient pyramid stones were cast from secret geopolymer cement formulas hidden by historians,misleading,FALSE,rule_based
+test,NASA secret satellite photos confirm mystery island appearing and disappearing in middle of Indian Ocean,misleading,UNVERIFIABLE,rule_based
+test,New central bank digital currency automatically docks fines if citizen carbon footprint exceeds daily limit,misleading,UNVERIFIABLE,rule_based
+test,Boiling eucalyptus leaves with rock salt produces vapors guaranteed to eradicate any virus from home within hours,misleading,FALSE,llm_fallback
+test,Secret international summit signs binding declaration ordering member states to ban private gas stoves,misleading,UNVERIFIABLE,rule_based
+test,Barcode starting with digit 8 secretly flags processed foods containing laboratory-synthesized cloned ingredients,misleading,FALSE,llm_fallback
+test,Confidential government project caught installing microwave radiation emitters disguised as highway streetlights,misleading,FALSE,rule_based
+test,Consuming two tablespoons of raw clove extract completely neutralizes chemotherapy side effects instantly,misleading,FALSE,rule_based
+test,"Underground patent documents reveal car engines designed to run 1,000 miles per gallon of tap water suppressed since 1978",misleading,UNVERIFIABLE,rule_based
+test,Breaking: European Parliament secretly passes legislation requiring microchip identification for all household pets by December,misleading,FALSE,llm_fallback
+test,Drinking ice-cold water immediately solidifies oily food in intestines and directly triggers malignant tumor formation,misleading,FALSE,llm_fallback
