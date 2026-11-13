@@ -154,3 +154,122 @@ def classify_type(text: str, verifier_fn=None) -> dict:
         "verdict": verdict,
         "uncertain": uncertain,
     }
+
+
+def classify_type_v2(text: str, verifier_fn=None) -> dict:
+    """
+    classify_type_v2(text, verifier_fn=None) ->
+    Pre-registered rule: identical to v1 EXCEPT if trained model and LLM disagree
+    and trained label is satire or clickbait, call verifier first;
+    if verdict is FALSE -> final = misleading (source "verifier_override");
+    otherwise fall through to v1 logic.
+    """
+    trained_label, trained_conf = _predict_trained(text)
+
+    llm_res = classify(text)
+    llm_label = llm_res.get("label", "ordinary")
+    llm_conf = float(llm_res.get("confidence", 0.0))
+
+    def _parse_verifier():
+        if callable(verifier_fn):
+            v_res = verifier_fn(text)
+            if isinstance(v_res, dict):
+                raw_v = v_res.get("verdict")
+            else:
+                raw_v = v_res
+
+            if raw_v is True or (isinstance(raw_v, str) and raw_v.upper() == "TRUE"):
+                return "TRUE"
+            elif raw_v is False or (isinstance(raw_v, str) and raw_v.upper() == "FALSE"):
+                return "FALSE"
+            elif isinstance(raw_v, str) and raw_v.upper() == "UNVERIFIABLE":
+                return "UNVERIFIABLE"
+            else:
+                return None
+        return None
+
+    verdict = None
+
+    # Pre-registered check:
+    # if trained model and LLM disagree and trained label is satire or clickbait, call verifier first
+    if (trained_label != llm_label) and (trained_label in {"satire", "clickbait"}):
+        verdict = _parse_verifier()
+        if verdict == "FALSE":
+            return {
+                "label": "misleading",
+                "source": "verifier_override",
+                "trained_label": trained_label,
+                "trained_conf": trained_conf,
+                "llm_label": llm_label,
+                "llm_conf": llm_conf,
+                "verdict": verdict,
+                "uncertain": False,
+            }
+
+    # Otherwise fall through to v1 logic:
+    final_label = "ordinary"
+    source = "default"
+    uncertain = False
+
+    # a) trained in {satire, clickbait} and LLM label == trained -> final = that label, source "both"
+    if trained_label in {"satire", "clickbait"} and llm_label == trained_label:
+        final_label = trained_label
+        source = "both"
+        uncertain = False
+
+    # b) else if trained in {satire, clickbait} with conf >= T_STRONG, or LLM in {satire, clickbait} with conf >= T_STRONG
+    elif (trained_label in {"satire", "clickbait"} and trained_conf >= T_STRONG) or (
+        llm_label in {"satire", "clickbait"} and llm_conf >= T_STRONG
+    ):
+        trained_qualifies = trained_label in {"satire", "clickbait"} and trained_conf >= T_STRONG
+        llm_qualifies = llm_label in {"satire", "clickbait"} and llm_conf >= T_STRONG
+
+        if trained_qualifies and llm_qualifies:
+            if trained_conf >= llm_conf:
+                final_label = trained_label
+                source = "trained"
+            else:
+                final_label = llm_label
+                source = "llm"
+        elif trained_qualifies:
+            final_label = trained_label
+            source = "trained"
+        else:
+            final_label = llm_label
+            source = "llm"
+        uncertain = True
+
+    # c) else call verifier_fn(text) LAZILY (only here)
+    else:
+        if verdict is None:
+            verdict = _parse_verifier()
+
+        if verdict == "FALSE":
+            final_label = "misleading"
+            source = "verifier"
+            uncertain = False
+        elif verdict == "TRUE":
+            final_label = "ordinary"
+            source = "verifier"
+            uncertain = False
+        else:  # UNVERIFIABLE or None
+            if llm_label == "misleading" and llm_conf >= T2:
+                final_label = "misleading"
+                source = "llm"
+                uncertain = True
+            else:
+                final_label = "ordinary"
+                source = "default"
+                uncertain = False
+
+    return {
+        "label": final_label,
+        "source": source,
+        "trained_label": trained_label,
+        "trained_conf": trained_conf,
+        "llm_label": llm_label,
+        "llm_conf": llm_conf,
+        "verdict": verdict,
+        "uncertain": uncertain,
+    }
+

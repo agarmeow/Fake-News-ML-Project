@@ -308,9 +308,13 @@ if analyze:
                     st.info("Fake-type analysis supports English only.")
                 else:
                     with st.spinner("Analyzing fake-type category..."):
-                        from reasoning.faketype_pipeline import classify_type
+                        pipeline_ver = os.getenv("FAKETYPE_PIPELINE", "v1").strip().lower()
+                        if pipeline_ver == "v2":
+                            from reasoning.faketype_pipeline import classify_type_v2 as classify_fn
+                        else:
+                            from reasoning.faketype_pipeline import classify_type as classify_fn
                         try:
-                            pt_res = classify_type(final_claim, verifier_fn=lambda _: result)
+                            pt_res = classify_fn(final_claim, verifier_fn=lambda _: result)
                             pipe_label = pt_res["label"]
                             source = pt_res["source"]
                             trained_lbl = pt_res["trained_label"]
