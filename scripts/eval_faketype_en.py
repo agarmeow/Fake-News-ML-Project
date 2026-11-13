@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import time
 import argparse
 from pathlib import Path
 from dotenv import load_dotenv
@@ -164,11 +165,13 @@ def main():
         llm1_label = llm1_res.get("label", "ordinary")
         llm1_conf = float(llm1_res.get("confidence", 0.0))
         llm1_cues = "; ".join(llm1_res.get("cues", []))
+        time.sleep(1.0)
 
         # 4. LLM Model 2
         llm2_res = classify(text, model=model_2)
         llm2_label = llm2_res.get("label", "ordinary")
         llm2_conf = float(llm2_res.get("confidence", 0.0))
+        time.sleep(1.0)
 
         # 5. Hybrid Pipeline
         pipe_res = classify_type(text, verifier_fn=cached_fact_check)
@@ -176,6 +179,7 @@ def main():
         pipe_source = pipe_res.get("source", "default")
         pipe_uncertain = pipe_res.get("uncertain", False)
         pipe_verdict = pipe_res.get("verdict", "")
+        time.sleep(1.0)
 
         row_dict = {
             "text": text,

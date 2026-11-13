@@ -1,0 +1,9 @@
+text,gold,pred,trained label+conf,LLM label+cues
+National highway authority opens newly constructed four-lane bypass to heavy vehicular traffic,ordinary,satire,satire (0.994),ordinary [national highway authority; opens newly constructed; four-lane bypass; heavy vehicular traffic]
+State government signs preliminary pact with renewable energy firm to set up 500 MW solar plant,ordinary,misleading,ordinary (0.889),ordinary [state government; preliminary pact; renewable energy firm; 500 MW solar plant]
+New central bank digital currency automatically docks fines if citizen carbon footprint exceeds daily limit,misleading,satire,satire (0.985),ordinary [fallback_exhausted]
+Boiling eucalyptus leaves with rock salt produces vapors guaranteed to eradicate any virus from home within hours,misleading,satire,satire (0.996),misleading [boiling eucalyptus leaves; rock salt; eradicate any virus; miracle cure claim; guaranteed within hours]
+Barcode starting with digit 8 secretly flags processed foods containing laboratory-synthesized cloned ingredients,misleading,satire,satire (0.995),ordinary [fallback_exhausted]
+Consuming two tablespoons of raw clove extract completely neutralizes chemotherapy side effects instantly,misleading,satire,satire (0.925),misleading [raw clove extract; neutralizes chemotherapy side effects; instantly; miracle cure claim]
+"Underground patent documents reveal car engines designed to run 1,000 miles per gallon of tap water suppressed since 1978",misleading,satire,satire (0.986),ordinary [fallback_exhausted]
+Drinking ice-cold water immediately solidifies oily food in intestines and directly triggers malignant tumor formation,misleading,satire,satire (0.963),misleading [miracle health claim; unsupported scientific assertion; cancer causation claim]
