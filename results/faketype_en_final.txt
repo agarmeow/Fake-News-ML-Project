@@ -1,0 +1,70 @@
+============================================================
+FAKETYPE ENGLISH EVALUATION: EXTRA TABLES & POOLED ANALYSIS
+============================================================
+
+A) TRAINED-ONLY COLLAPSED TO 3 CLASSES (plain, satire, clickbait):
+Split      Accuracy    Macro-F1    N
+---------------------------------------------
+Dev        0.7500      0.7517      28
+Test       0.6250      0.6336      48
+Pooled     0.6711      0.6803      76
+
+B) POOLED DEV+TEST (N=76) EVALUATION FOR ALL THREE METHODS:
+
+--- Trained-only (Pooled N=76) ---
+Accuracy: 0.5789 | Macro-F1: 0.5015
+Per-Class Metrics:
+  ordinary    : P=0.5000, R=0.7895, F1=0.6122
+  satire      : P=0.5312, R=0.8947, F1=0.6667
+  clickbait   : P=0.8571, R=0.6316, F1=0.7273
+  misleading  : P=0.0000, R=0.0000, F1=0.0000
+Confusion Matrix:
+Gold \ Pred    | ordinary   | satire     | clickbait  | misleading
+------------------------------------------------------------------
+ordinary       | 15         | 4          | 0          | 0         
+satire         | 2          | 17         | 0          | 0         
+clickbait      | 6          | 1          | 12         | 0         
+misleading     | 7          | 10         | 2          | 0         
+
+--- LLM-only (Model 1) (Pooled N=76) ---
+Accuracy: 0.7632 | Macro-F1: 0.7711
+Per-Class Metrics:
+  ordinary    : P=0.5278, R=1.0000, F1=0.6909
+  satire      : P=1.0000, R=0.6842, F1=0.8125
+  clickbait   : P=1.0000, R=0.8421, F1=0.9143
+  misleading  : P=0.9091, R=0.5263, F1=0.6667
+Confusion Matrix:
+Gold \ Pred    | ordinary   | satire     | clickbait  | misleading
+------------------------------------------------------------------
+ordinary       | 19         | 0          | 0          | 0         
+satire         | 5          | 13         | 0          | 1         
+clickbait      | 3          | 0          | 16         | 0         
+misleading     | 9          | 0          | 0          | 10        
+
+--- Hybrid Pipeline (Pooled N=76) ---
+Accuracy: 0.8553 | Macro-F1: 0.8498
+Per-Class Metrics:
+  ordinary    : P=0.9412, R=0.8421, F1=0.8889
+  satire      : P=0.7037, R=1.0000, F1=0.8261
+  clickbait   : P=0.9500, R=1.0000, F1=0.9744
+  misleading  : P=0.9167, R=0.5789, F1=0.7097
+Confusion Matrix:
+Gold \ Pred    | ordinary   | satire     | clickbait  | misleading
+------------------------------------------------------------------
+ordinary       | 16         | 2          | 0          | 1         
+satire         | 0          | 19         | 0          | 0         
+clickbait      | 0          | 0          | 19         | 0         
+misleading     | 1          | 6          | 1          | 11        
+
+C) 95% WILSON SCORE CONFIDENCE INTERVALS FOR ACCURACY:
+Method                 | Test (n=48) Acc [95% CI]         | Pooled (n=76) Acc [95% CI]      
+--------------------------------------------------------------------------------------------
+Trained-only           | 0.5833 [0.4428, 0.7115]             | 0.5789 [0.4668, 0.6835]
+LLM-only (Model 1)     | 0.7083 [0.5682, 0.8176]             | 0.7632 [0.6564, 0.8446]
+Hybrid Pipeline        | 0.8333 [0.7042, 0.9130]             | 0.8553 [0.7591, 0.9172]
+
+D) PAIRED COMPARISON: HYBRID vs LLM-ONLY (POOLED N=76):
+Both correct:          52 (68.4%)
+Only Hybrid correct:   13 (17.1%)
+Only LLM correct:      6 (7.9%)
+Both wrong:            5 (6.6%)
