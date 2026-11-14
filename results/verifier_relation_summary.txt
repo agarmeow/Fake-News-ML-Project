@@ -1,0 +1,23 @@
+TABLE 1: PERFORMANCE ON RELATION CLAIMS (N=12)
+Config   | Accuracy (95% Wilson CI)   | % UNVERIFIABLE   | Correct/Total 
+----------------------------------------------------------------------
+C2       | 0.0000 [0.000, 0.242]      | 100.0          % | 0/12          
+C3       | 0.0000 [0.000, 0.242]      | 100.0          % | 0/12          
+C4       | 1.0000 [0.758, 1.000]      | 0.0            % | 12/12         
+
+TABLE 2: 3x3 CONFUSION MATRICES [Rows=Gold T/F/U, Cols=Pred T/F/U]
+Config   | Gold TRUE        | Gold FALSE       | Gold UNVERIFIABLE
+-----------------------------------------------------------------
+C2       | [0, 0, 6]        | [0, 0, 6]        | [0, 0, 0]       
+C3       | [0, 0, 6]        | [0, 0, 6]        | [0, 0, 0]       
+C4       | [6, 0, 0]        | [0, 6, 0]        | [0, 0, 0]       
+
+TABLE 3: PAIRED COMPARISON: C3 vs C2 (N=12)
+Only C3 Right    | Only C2 Right    | Both Right   | Both Wrong  
+------------------------------------------------------------
+0                | 0                | 0            | 12          
+
+TABLE 4: ROWS WHERE C3 DIFFERS FROM C2
+ID     | Gold     | C2 Verdict     | C3 Verdict     | Claim                                        
+--------------------------------------------------------------------------------------------
+None (C2 and C3 produced identical verdicts on all rows)

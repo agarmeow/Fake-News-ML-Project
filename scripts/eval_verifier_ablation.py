@@ -249,15 +249,33 @@ def eval_c1_nli_only(results: list) -> tuple:
 def main():
     parser = argparse.ArgumentParser(description="Verifier Ablation Evaluation")
     parser.add_argument("--debug", action="store_true", help="Run on DEBUG rows only (T01-T06, F01-F06)")
+    parser.add_argument("--input", type=str, default=str(PROJECT_ROOT / "data" / "eval" / "claims.csv"), help="Path to input claims CSV")
+    parser.add_argument("--configs", type=str, default="C0,C1,C2,C3,C4,C5", help="Comma-separated configs to run")
+    parser.add_argument("--output", type=str, default=None, help="Path to output CSV")
     args = parser.parse_args()
 
-    claims_csv = PROJECT_ROOT / "data" / "eval" / "claims.csv"
+    claims_csv = Path(args.input)
+    if not claims_csv.is_absolute():
+        claims_csv = PROJECT_ROOT / claims_csv
     if not claims_csv.exists():
         print(f"FATAL: {claims_csv} does not exist!")
         sys.exit(1)
 
-    out_csv = PROJECT_ROOT / "results" / "verifier_ablation.csv"
+    if args.output:
+        out_csv = Path(args.output)
+        if not out_csv.is_absolute():
+            out_csv = PROJECT_ROOT / out_csv
+    else:
+        if "relation" in claims_csv.stem.lower():
+            out_csv = PROJECT_ROOT / "results" / "verifier_relation.csv"
+        else:
+            out_csv = PROJECT_ROOT / "results" / "verifier_ablation.csv"
     out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    active_configs = set(c.strip().upper() for c in args.configs.split(",") if c.strip())
+    print(f"Active configs: {sorted(list(active_configs))}")
+    print(f"Input file: {claims_csv}")
+    print(f"Output file: {out_csv}")
 
     df = pd.read_csv(claims_csv)
     if args.debug:
@@ -306,67 +324,85 @@ def main():
         print(f"Normalized: {claim_n[:70]}... (source: {norm_source})")
 
         # 2. C0: Closed-book LLM (no evidence)
-        c0_res = call_c0_closed_book(claim_n)
-        c0_verdict = c0_res["verdict"]
-        c0_conf = c0_res["confidence"]
-        print(f"  C0 (Closed-book): {c0_verdict} ({c0_conf:.2f})")
+        c0_verdict, c0_conf = None, None
+        if "C0" in active_configs:
+            c0_res = call_c0_closed_book(claim_n)
+            c0_verdict = c0_res["verdict"]
+            c0_conf = c0_res["confidence"]
+            print(f"  C0 (Closed-book): {c0_verdict} ({c0_conf:.2f})")
 
-        # 3. Retrieve primary evidence once
-        evidence = retrieve_evidence(claim_n, max_results=5)
-        primary_results = evaluate_evidence(
-            claim_n, evidence, tokenizer, nli_model, semantic_model
-        ) if evidence else []
+        # 3. Retrieve primary evidence (if any evidence-based config is active)
+        needs_primary = any(c in active_configs for c in ("C1", "C2", "C3", "C5"))
+        if needs_primary:
+            evidence = retrieve_evidence(claim_n, max_results=5)
+            primary_results = evaluate_evidence(
+                claim_n, evidence, tokenizer, nli_model, semantic_model
+            ) if evidence else []
+        else:
+            evidence = []
+            primary_results = []
 
         # 4. C1: NLI only
-        c1_verdict, c1_conf = eval_c1_nli_only(primary_results)
-        print(f"  C1 (NLI only): {c1_verdict} ({c1_conf:.2f})")
+        c1_verdict, c1_conf = None, None
+        if "C1" in active_configs:
+            c1_verdict, c1_conf = eval_c1_nli_only(primary_results)
+            print(f"  C1 (NLI only): {c1_verdict} ({c1_conf:.2f})")
 
         # 5. C2: C1 + consistency checker (primary evidence only)
-        if primary_results:
-            c2_agg = aggregate_results(primary_results)
-            c2_verdict = clean_verdict(c2_agg[0])
-            c2_conf = float(c2_agg[1])
-        else:
-            c2_verdict, c2_conf = "UNVERIFIABLE", 0.0
-        print(f"  C2 (NLI + Consistency): {c2_verdict} ({c2_conf:.2f})")
+        c2_verdict, c2_conf = None, None
+        if "C2" in active_configs or "C3" in active_configs:
+            if primary_results:
+                c2_agg = aggregate_results(primary_results)
+                c2_verdict = clean_verdict(c2_agg[0])
+                c2_conf = float(c2_agg[1])
+            else:
+                c2_verdict, c2_conf = "UNVERIFIABLE", 0.0
+            if "C2" in active_configs:
+                print(f"  C2 (NLI + Consistency): {c2_verdict} ({c2_conf:.2f})")
 
-        # 6. C3: C2 + competing-fact retrieval pass (only when primary rule verdict is UNVERIFIABLE)
-        c3_verdict, c3_conf = c2_verdict, c2_conf
-        if c2_verdict == "UNVERIFIABLE" and primary_results:
-            claim_relation = primary_results[0].get("claim_relation")
-            alt_query = build_alternative_query(claim_relation)
-            if alt_query:
-                alt_evidence = retrieve_evidence(alt_query, max_results=5)
-                seen_urls = {r["url"] for r in primary_results}
-                alt_evidence = [e for e in alt_evidence if e.get("url") not in seen_urls]
-                if alt_evidence:
-                    alt_results = evaluate_evidence(
-                        claim_n, alt_evidence, tokenizer, nli_model, semantic_model
-                    )
-                    merged = primary_results + alt_results
-                    c3_agg = aggregate_results(merged)
-                    c3_verdict = clean_verdict(c3_agg[0])
-                    c3_conf = float(c3_agg[1])
-        print(f"  C3 (C2 + Competing-fact): {c3_verdict} ({c3_conf:.2f})")
+        # 6. C3: C2 + competing-fact retrieval pass
+        c3_verdict, c3_conf = None, None
+        if "C3" in active_configs:
+            c3_verdict, c3_conf = c2_verdict, c2_conf
+            if c2_verdict == "UNVERIFIABLE" and primary_results:
+                claim_relation = primary_results[0].get("claim_relation")
+                alt_query = build_alternative_query(claim_relation)
+                if alt_query:
+                    alt_evidence = retrieve_evidence(alt_query, max_results=5)
+                    seen_urls = {r["url"] for r in primary_results}
+                    alt_evidence = [e for e in alt_evidence if e.get("url") not in seen_urls]
+                    if alt_evidence:
+                        alt_results = evaluate_evidence(
+                            claim_n, alt_evidence, tokenizer, nli_model, semantic_model
+                        )
+                        merged = primary_results + alt_results
+                        c3_agg = aggregate_results(merged)
+                        c3_verdict = clean_verdict(c3_agg[0])
+                        c3_conf = float(c3_agg[1])
+            print(f"  C3 (C2 + Competing-fact): {c3_verdict} ({c3_conf:.2f})")
 
         # 7. C4: Full system as shipped
-        t_c4_start = time.time()
-        c4_fc = fact_check(claim_n)
-        c4_secs = time.time() - t_c4_start
-        if c4_fc:
-            c4_verdict = clean_verdict(c4_fc.get("verdict"))
-            c4_conf = float(c4_fc.get("confidence", 0.0))
-            c4_source = c4_fc.get("verdict_source", "rule_based")
-            c4_conflict = bool(c4_fc.get("conflict", False))
-        else:
-            c4_verdict, c4_conf, c4_source, c4_conflict = "UNVERIFIABLE", 0.0, "rule_based", False
-        print(f"  C4 (Full system): {c4_verdict} ({c4_conf:.2f}, src={c4_source}, conflict={c4_conflict}, {c4_secs:.2f}s)")
+        c4_verdict, c4_conf, c4_source, c4_conflict, c4_secs = None, None, None, None, 0.0
+        if "C4" in active_configs:
+            t_c4_start = time.time()
+            c4_fc = fact_check(claim_n)
+            c4_secs = time.time() - t_c4_start
+            if c4_fc:
+                c4_verdict = clean_verdict(c4_fc.get("verdict"))
+                c4_conf = float(c4_fc.get("confidence", 0.0))
+                c4_source = c4_fc.get("verdict_source", "rule_based")
+                c4_conflict = bool(c4_fc.get("conflict", False))
+            else:
+                c4_verdict, c4_conf, c4_source, c4_conflict = "UNVERIFIABLE", 0.0, "rule_based", False
+            print(f"  C4 (Full system): {c4_verdict} ({c4_conf:.2f}, src={c4_source}, conflict={c4_conflict}, {c4_secs:.2f}s)")
 
         # 8. C5: LLM reading primary evidence, no rules
-        c5_res = call_c5_llm_verify(claim_n, primary_results)
-        c5_verdict = c5_res["verdict"]
-        c5_conf = c5_res["confidence"]
-        print(f"  C5 (LLM + primary evidence): {c5_verdict} ({c5_conf:.2f})")
+        c5_verdict, c5_conf = None, None
+        if "C5" in active_configs:
+            c5_res = call_c5_llm_verify(claim_n, primary_results)
+            c5_verdict = c5_res["verdict"]
+            c5_conf = c5_res["confidence"]
+            print(f"  C5 (LLM + primary evidence): {c5_verdict} ({c5_conf:.2f})")
 
         time.sleep(1.0)
 
@@ -377,22 +413,16 @@ def main():
             "gold": gold,
             "claim_n": claim_n,
             "normalizer_source": norm_source,
-            "c0_verdict": c0_verdict,
-            "c0_confidence": c0_conf,
-            "c1_verdict": c1_verdict,
-            "c1_confidence": c1_conf,
-            "c2_verdict": c2_verdict,
-            "c2_confidence": c2_conf,
-            "c3_verdict": c3_verdict,
-            "c3_confidence": c3_conf,
-            "c4_verdict": c4_verdict,
-            "c4_confidence": c4_conf,
-            "c5_verdict": c5_verdict,
-            "c5_confidence": c5_conf,
-            "c4_verdict_source": c4_source,
-            "c4_conflict": c4_conflict,
-            "c4_seconds": round(c4_secs, 2),
         }
+        for c in ["C0", "C1", "C2", "C3", "C4", "C5"]:
+            if c in active_configs:
+                rec[f"{c.lower()}_verdict"] = locals()[f"{c.lower()}_verdict"]
+                rec[f"{c.lower()}_confidence"] = locals()[f"{c.lower()}_conf"]
+        if "C4" in active_configs:
+            rec["c4_verdict_source"] = c4_source
+            rec["c4_conflict"] = c4_conflict
+            rec["c4_seconds"] = round(c4_secs, 2)
+
         records.append(rec)
         done_ids.add(row_id)
         pd.DataFrame(records).to_csv(out_csv, index=False)

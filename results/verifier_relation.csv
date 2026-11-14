@@ -1,0 +1,13 @@
+id,category,language,gold,claim_n,normalizer_source,c2_verdict,c2_confidence,c3_verdict,c3_confidence,c4_verdict,c4_confidence,c4_verdict_source,c4_conflict,c4_seconds
+R01,relation,en,TRUE,The capital of Australia is Canberra.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,13.82
+R02,relation,en,TRUE,The capital of Canada is Ottawa.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,11.93
+R03,relation,en,TRUE,The capital of Turkey is Ankara.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,2.37
+R04,relation,en,TRUE,The capital of Nigeria is Abuja.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,8.56
+R05,relation,en,TRUE,The capital of Rajasthan is Jaipur.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,1.87
+R06,relation,en,TRUE,The capital of Kerala is Thiruvananthapuram.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,13.37
+R07,relation,en,FALSE,The capital of Brazil is Rio de Janeiro.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,11.22
+R08,relation,en,FALSE,The capital of Switzerland is Zurich.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,2.04
+R09,relation,en,FALSE,The capital of Canada is Toronto.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,6.75
+R10,relation,en,FALSE,The capital of Nigeria is Lagos.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,1.9
+R11,relation,en,FALSE,The capital of Karnataka is Mysuru.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,2.04
+R12,relation,en,FALSE,The capital of Tamil Nadu is Coimbatore.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,14.21

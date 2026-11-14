@@ -14,6 +14,8 @@ CLASSES = ["TRUE", "FALSE", "UNVERIFIABLE"]
 
 
 def clean_v(v):
+    if isinstance(v, bool):
+        return "TRUE" if v else "FALSE"
     if not isinstance(v, str):
         return "UNVERIFIABLE"
     vu = v.strip().upper()
