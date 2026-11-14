@@ -12,6 +12,7 @@ CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 VALID_VERDICTS = {"TRUE", "FALSE", "UNVERIFIABLE"}
+GROQ_STATS = {"attempted": 0, "failed": 0}
 
 
 def _build_evidence_block(evidence_results, max_items=5, max_chars=500):
@@ -43,13 +44,18 @@ def _call_groq_chat(model, api_key, payload_messages, timeout=30):
         "max_completion_tokens": 400,
         "response_format": {"type": "json_object"},
     }
+    GROQ_STATS["attempted"] += 1
     try:
         resp = requests.post(CHAT_URL, headers=headers, json=payload, timeout=timeout, verify=False)
         retry_after = resp.headers.get("Retry-After")
+        if resp.status_code != 200:
+            GROQ_STATS["failed"] += 1
         return resp, resp.status_code, retry_after, None
     except requests.exceptions.Timeout as te:
+        GROQ_STATS["failed"] += 1
         return None, 408, None, te
     except Exception as e:
+        GROQ_STATS["failed"] += 1
         return None, 500, None, e
 
 
