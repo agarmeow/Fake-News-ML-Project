@@ -1,0 +1,48 @@
+TABLE A: C4 AND C5 ACCURACY BY VERDICT_SOURCE (REPORT SET, N=37)
+Verdict Source       | n    | C4 Correct | C4 Accuracy  | C5 Correct | C5 Accuracy 
+--------------------------------------------------------------------------------
+rule_based           | 24   | 19         | 0.7917       | 20         | 0.8333      
+llm_fallback         | 13   | 12         | 0.9231       | 11         | 0.8462      
+
+TABLE B: ACCURACY BY LANGUAGE GROUP
+Language Group   | n    | C0 Accuracy  | C4 Accuracy  | C5 Accuracy 
+------------------------------------------------------------------
+en               | 32   | 0.6875       | 0.8750       | 0.8125      
+non-en           | 5    | 1.0000       | 0.6000       | 1.0000      
+
+TABLE C: NUMBER CORRECT / N BY CATEGORY
+Category               | n    | C0 (Corr/n)  | C4 (Corr/n)  | C5 (Corr/n) 
+------------------------------------------------------------------------
+stable_fact            | 8    | 8/8          | 7/8          | 8/8         
+wrong_fact             | 9    | 9/9          | 6/9          | 7/9         
+invented               | 12   | 8/12         | 11/12        | 11/12       
+recent_news            | 4    | 1/4          | 3/4          | 1/4         
+recent_news_mutated    | 4    | 1/4          | 4/4          | 4/4         
+
+TABLE D: C4 ERRORS (REPORT SET)
+ID     | Gold     | C4 Verdict   | Verdict Source  | C0 Verdict   | C5 Verdict  
+---------------------------------------------------------------------------
+F07    | FALSE    | TRUE         | rule_based      | FALSE        | UNVERIFIABLE
+F11    | FALSE    | TRUE         | rule_based      | FALSE        | UNVERIFIABLE
+U10    | UNVERIFIABLE | FALSE        | llm_fallback    | UNVERIFIABLE | FALSE       
+N01    | TRUE     | FALSE        | rule_based      | TRUE         | UNVERIFIABLE
+M01    | TRUE     | UNVERIFIABLE | rule_based      | TRUE         | TRUE        
+M05    | FALSE    | UNVERIFIABLE | rule_based      | FALSE        | FALSE       
+
+TABLE E: C4 CONFLICT ROWS
+ID     | Gold     | Rule-based Verdict   | LLM Verdict    
+-------------------------------------------------------
+F07    | FALSE    | TRUE                 | FALSE          
+F11    | FALSE    | TRUE                 | FALSE          
+
+TABLE F: RECENT-NEWS ROWS (N=8)
+ID     | Gold     | C0 Verdict   | C1 Verdict   | C4 Verdict   | C5 Verdict  
+------------------------------------------------------------------------
+N01    | TRUE     | TRUE         | FALSE        | FALSE        | UNVERIFIABLE
+N02    | TRUE     | FALSE        | UNVERIFIABLE | TRUE         | FALSE       
+N03    | TRUE     | FALSE        | TRUE         | TRUE         | UNVERIFIABLE
+N04    | TRUE     | FALSE        | UNVERIFIABLE | TRUE         | TRUE        
+N05    | FALSE    | TRUE         | FALSE        | FALSE        | FALSE       
+N06    | FALSE    | UNVERIFIABLE | FALSE        | FALSE        | FALSE       
+N07    | FALSE    | UNVERIFIABLE | UNVERIFIABLE | FALSE        | FALSE       
+N08    | FALSE    | FALSE        | FALSE        | FALSE        | FALSE       
