@@ -165,6 +165,31 @@ def call_c0_closed_book(claim_n: str) -> dict:
     return {"verdict": "UNVERIFIABLE", "confidence": 0.0}
 
 
+def call_c5_llm_verify(claim_n: str, primary_results: list) -> dict:
+    if not primary_results:
+        return {"verdict": "UNVERIFIABLE", "confidence": 0.0}
+    for attempt in range(4):
+        try:
+            res = llm_verify(claim_n, primary_results)
+            if res:
+                v = clean_verdict(res.get("verdict"))
+                try:
+                    conf = float(res.get("confidence", 0.0))
+                except Exception:
+                    conf = 0.0
+                return {"verdict": v, "confidence": conf}
+            return {"verdict": "UNVERIFIABLE", "confidence": 0.0}
+        except Exception as e:
+            if "429" in str(e):
+                wait_s = min(2 ** (attempt + 1) * 2, 20)
+                print(f"Warning: C5 hit 429 rate limit. Waiting {wait_s}s (attempt {attempt+1}/4)...")
+                time.sleep(wait_s)
+                continue
+            print(f"Warning in C5 llm_verify: {e}")
+            return {"verdict": "UNVERIFIABLE", "confidence": 0.0}
+    return {"verdict": "UNVERIFIABLE", "confidence": 0.0}
+
+
 def eval_c1_nli_only(results: list) -> tuple:
     """
     C1 NLI only: primary evidence; SUPPORT when NLI label is entailment,
@@ -338,17 +363,12 @@ def main():
         print(f"  C4 (Full system): {c4_verdict} ({c4_conf:.2f}, src={c4_source}, conflict={c4_conflict}, {c4_secs:.2f}s)")
 
         # 8. C5: LLM reading primary evidence, no rules
-        try:
-            c5_llm = llm_verify(claim_n, primary_results) if primary_results else None
-            if c5_llm:
-                c5_verdict = clean_verdict(c5_llm.get("verdict"))
-                c5_conf = float(c5_llm.get("confidence", 0.0))
-            else:
-                c5_verdict, c5_conf = "UNVERIFIABLE", 0.0
-        except Exception as e:
-            print(f"Warning in C5 llm_verify: {e}")
-            c5_verdict, c5_conf = "UNVERIFIABLE", 0.0
+        c5_res = call_c5_llm_verify(claim_n, primary_results)
+        c5_verdict = c5_res["verdict"]
+        c5_conf = c5_res["confidence"]
         print(f"  C5 (LLM + primary evidence): {c5_verdict} ({c5_conf:.2f})")
+
+        time.sleep(1.0)
 
         rec = {
             "id": row_id,
