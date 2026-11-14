@@ -35,7 +35,7 @@ from verification.consistency_checker import (
     RELATION_MAP,
     nlp
 )
-from reasoning.llm_reasoner import llm_verify
+from reasoning.llm_reasoner import llm_verify, llm_verify_with_status
 
 from sentence_transformers import SentenceTransformer
 
@@ -478,13 +478,16 @@ def fact_check(claim):
     verdict_source = "rule_based"
     conflict = False
     llm_verdict = None
+    llm_status = "no_key"
+    llm_model = None
 
     t_llm = time.time()
     try:
-        llm_result = llm_verify(claim, results)
+        llm_result, llm_status, llm_model = llm_verify_with_status(claim, results)
     except Exception as e:
         print(f"\n[LLM] Groq call failed, falling back to rule-based verdict: {e}")
         llm_result = None
+        llm_status = "error"
     STAGE_TIMINGS["llm_verify"] = time.time() - t_llm
 
     if llm_result:
@@ -568,6 +571,8 @@ def fact_check(claim):
         "evidence": results,
         "llm_reasoning": llm_reasoning,
         "verdict_source": verdict_source,
+        "llm_status": llm_status,
+        "llm_model": llm_model,
         "timings": dict(STAGE_TIMINGS),
         "cache_stats": dict(CACHE_STATS),
     }

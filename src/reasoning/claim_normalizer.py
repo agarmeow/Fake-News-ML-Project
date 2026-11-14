@@ -1,12 +1,12 @@
 import os
 import re
+import time
 import json
 import requests
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-GROQ_CHAT_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
@@ -28,6 +28,49 @@ def _lenient_json_parse(text):
             return json.loads(m.group(0))
         except Exception:
             pass
+    return None
+
+
+def _post_with_retry(headers, payload, timeout=12):
+    backoffs = [2, 4, 8, 16]
+    for attempt in range(4):
+        try:
+            response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=timeout, verify=False)
+            if response.status_code == 200:
+                return response
+            if response.status_code in (429, 500, 502, 503):
+                retry_after = response.headers.get("Retry-After")
+                sleep_sec = backoffs[attempt]
+                if retry_after:
+                    try:
+                        sleep_sec = float(retry_after)
+                    except (ValueError, TypeError):
+                        pass
+                sleep_sec = min(sleep_sec, 30)
+                if attempt < 3:
+                    time.sleep(sleep_sec)
+            else:
+                break
+        except requests.exceptions.Timeout:
+            if attempt < 3:
+                time.sleep(backoffs[attempt])
+        except Exception:
+            if attempt < 3:
+                time.sleep(backoffs[attempt])
+
+    # Fallback to GROQ_FAKETYPE_MODEL_2 if configured
+    fallback_model = os.environ.get("GROQ_FAKETYPE_MODEL_2")
+    if fallback_model and fallback_model.strip() and payload.get("model") != fallback_model.strip():
+        fallback_payload = dict(payload)
+        fallback_payload["model"] = fallback_model.strip()
+        time.sleep(2)
+        try:
+            response = requests.post(CHAT_URL, headers=headers, json=fallback_payload, timeout=timeout, verify=False)
+            if response.status_code == 200:
+                return response
+        except Exception:
+            pass
+
     return None
 
 
@@ -71,9 +114,11 @@ def normalize_claim(raw):
 
     user_prompt = f"Raw text: {raw}"
 
+    groq_chat_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+
     # Primary attempt: response_format json_object with sufficient token budget
     payload = {
-        "model": GROQ_CHAT_MODEL,
+        "model": groq_chat_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -84,39 +129,31 @@ def normalize_claim(raw):
     }
 
     parsed = None
-    try:
-        response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=12, verify=False)
-        if response.status_code == 200:
-            raw_resp = response.json()["choices"][0]["message"]["content"].strip()
-            parsed = _lenient_json_parse(raw_resp)
-        else:
-            print(f"[Normalizer 400/Error] status={response.status_code} body={response.text}")
-    except Exception as e:
-        print(f"[Normalizer Primary Error] {e}")
+    response = _post_with_retry(headers, payload, timeout=12)
+    if response and response.status_code == 200:
+        raw_resp = response.json()["choices"][0]["message"]["content"].strip()
+        parsed = _lenient_json_parse(raw_resp)
 
     # Retry once with minimal prompt and lenient parse if primary failed or parse failed
     if not parsed or not parsed.get("claim"):
-        try:
-            minimal_payload = {
-                "model": GROQ_CHAT_MODEL,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Clean this text into a single factual claim. Keep names of people, places, organizations, and brands exactly as written unless garbled. Output as JSON "
-                            f'{{"claim": "<cleaned English claim>", "language": "English", "translated": false}}:\n{raw}'
-                        ),
-                    }
-                ],
-                "temperature": 0.1,
-                "max_completion_tokens": 1024,
-            }
-            retry_resp = requests.post(CHAT_URL, headers=headers, json=minimal_payload, timeout=12, verify=False)
-            if retry_resp.status_code == 200:
-                raw_resp2 = retry_resp.json()["choices"][0]["message"]["content"].strip()
-                parsed = _lenient_json_parse(raw_resp2)
-        except Exception:
-            pass
+        minimal_payload = {
+            "model": groq_chat_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Clean this text into a single factual claim. Keep names of people, places, organizations, and brands exactly as written unless garbled. Output as JSON "
+                        f'{{"claim": "<cleaned English claim>", "language": "English", "translated": false}}:\n{raw}'
+                    ),
+                }
+            ],
+            "temperature": 0.1,
+            "max_completion_tokens": 1024,
+        }
+        retry_resp = _post_with_retry(headers, minimal_payload, timeout=12)
+        if retry_resp and retry_resp.status_code == 200:
+            raw_resp2 = retry_resp.json()["choices"][0]["message"]["content"].strip()
+            parsed = _lenient_json_parse(raw_resp2)
 
     if parsed and parsed.get("claim"):
         norm_claim = str(parsed["claim"]).strip()

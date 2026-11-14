@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import requests
 import base64
@@ -6,13 +7,6 @@ import urllib3
 from io import BytesIO
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_CHAT_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
-GROQ_WHISPER_MODEL = os.environ.get("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
-GROQ_VISION_MODEL = os.environ.get(
-    "GROQ_VISION_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct"
-)
 
 CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -33,22 +27,46 @@ def _build_evidence_block(evidence_results, max_items=5, max_chars=500):
     return "\n\n".join(lines)
 
 
-def llm_verify(claim, evidence_results):
+def _call_groq_chat(model, api_key, payload_messages, timeout=30):
     """
-    Ask Groq's gpt-oss model to read the SAME evidence the rule-based
-    pipeline already retrieved (no new search calls) and give an
-    independent verdict + plain-English reasoning.
+    Helper to execute one chat completion call against Groq API.
+    Returns (response_or_None, status_code, retry_after_or_None, exception_or_None)
+    """
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": payload_messages,
+        "temperature": 0.2,
+        "max_completion_tokens": 400,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        resp = requests.post(CHAT_URL, headers=headers, json=payload, timeout=timeout, verify=False)
+        retry_after = resp.headers.get("Retry-After")
+        return resp, resp.status_code, retry_after, None
+    except requests.exceptions.Timeout as te:
+        return None, 408, None, te
+    except Exception as e:
+        return None, 500, None, e
 
-    Returns None if the key is missing, evidence is empty, or the
-    call/parse fails -- caller treats None as "no LLM opinion".
-    Deliberately does NOT swallow exceptions itself; the caller in
-    fact_checker.py wraps this in try/except so a Groq outage never
-    breaks the working pipeline.
+
+def llm_verify_with_status(claim, evidence_results):
     """
-    if not GROQ_API_KEY:
-        return None
+    Ask Groq model to verify a claim based on evidence passages.
+    Returns (result_or_None, status, model).
+    status is one of: 'ok', 'rate_limited', 'error', 'no_key'.
+    Retries on 429, 500, 502, 503, timeouts: up to 4 attempts, backoff 2, 4, 8, 16s (honors Retry-After, cap 30s).
+    If still failing, tries 1 attempt with GROQ_FAKETYPE_MODEL_2 if set.
+    """
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return None, "no_key", None
+
     if not evidence_results:
-        return None
+        return None, "ok", None
 
     evidence_block = _build_evidence_block(evidence_results)
 
@@ -64,50 +82,101 @@ def llm_verify(claim, evidence_results):
         '{"verdict": "TRUE|FALSE|UNVERIFIABLE", "confidence": 0.0-1.0, '
         '"reasoning": "<=60 words explaining why"}'
     )
-
     user_prompt = f"Claim: {claim}\n\nEvidence:\n{evidence_block}"
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
-    payload = {
-        "model": GROQ_CHAT_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.2,
-        "max_completion_tokens": 400,
-        "response_format": {"type": "json_object"},
-    }
+    primary_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+    fallback_model = os.environ.get("GROQ_FAKETYPE_MODEL_2")
 
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    backoffs = [2, 4, 8, 16]
+    last_status = "error"
+    active_model = primary_model
 
-    response = requests.post(CHAT_URL, headers=headers, json=payload, timeout=30, verify=False)
-    response.raise_for_status()
+    for attempt in range(4):
+        resp, code, retry_after, exc = _call_groq_chat(primary_model, api_key, messages, timeout=30)
+        if resp is not None and code == 200:
+            try:
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                if raw.startswith("```"):
+                    raw = raw.strip("`")
+                    if raw.lower().startswith("json"):
+                        raw = raw.split("\n", 1)[-1]
+                parsed = json.loads(raw)
+                verdict = str(parsed.get("verdict", "")).upper().strip()
+                if verdict in VALID_VERDICTS:
+                    try:
+                        confidence = float(parsed.get("confidence", 0.5))
+                    except (TypeError, ValueError):
+                        confidence = 0.5
+                    confidence = max(0.0, min(1.0, confidence))
+                    reasoning = str(parsed.get("reasoning", "")).strip()
+                    return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning}, "ok", primary_model
+                else:
+                    return None, "error", primary_model
+            except Exception:
+                return None, "error", primary_model
 
-    raw = response.json()["choices"][0]["message"]["content"].strip()
+        # Error handling
+        if code == 429:
+            last_status = "rate_limited"
+        elif code in (500, 502, 503, 408) or exc is not None:
+            last_status = "error"
+        else:
+            # Other 4xx error (e.g. 400 Bad Request, 401 Unauthorized)
+            last_status = "error"
+            break
 
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.lower().startswith("json"):
-            raw = raw.split("\n", 1)[-1]
+        if attempt < 3:
+            sleep_sec = backoffs[attempt]
+            if retry_after:
+                try:
+                    sleep_sec = float(retry_after)
+                except (ValueError, TypeError):
+                    pass
+            sleep_sec = min(sleep_sec, 30)
+            time.sleep(sleep_sec)
 
-    parsed = json.loads(raw)
+    # Try fallback model if configured
+    if fallback_model and fallback_model.strip():
+        active_model = fallback_model.strip()
+        time.sleep(2)  # short safety pause before fallback attempt
+        resp, code, retry_after, exc = _call_groq_chat(active_model, api_key, messages, timeout=30)
+        if resp is not None and code == 200:
+            try:
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                if raw.startswith("```"):
+                    raw = raw.strip("`")
+                    if raw.lower().startswith("json"):
+                        raw = raw.split("\n", 1)[-1]
+                parsed = json.loads(raw)
+                verdict = str(parsed.get("verdict", "")).upper().strip()
+                if verdict in VALID_VERDICTS:
+                    try:
+                        confidence = float(parsed.get("confidence", 0.5))
+                    except (TypeError, ValueError):
+                        confidence = 0.5
+                    confidence = max(0.0, min(1.0, confidence))
+                    reasoning = str(parsed.get("reasoning", "")).strip()
+                    return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning}, "ok", active_model
+            except Exception:
+                pass
+        if code == 429:
+            last_status = "rate_limited"
+        else:
+            last_status = "error"
 
-    verdict = str(parsed.get("verdict", "")).upper().strip()
-    if verdict not in VALID_VERDICTS:
-        return None
+    return None, last_status, active_model
 
-    try:
-        confidence = float(parsed.get("confidence", 0.5))
-    except (TypeError, ValueError):
-        confidence = 0.5
-    confidence = max(0.0, min(1.0, confidence))
 
-    reasoning = str(parsed.get("reasoning", "")).strip()
-
-    return {"verdict": verdict, "confidence": confidence, "reasoning": reasoning}
+def llm_verify(claim, evidence_results):
+    """
+    Wrapper preserving signature: returns dict or None.
+    """
+    res, status, model = llm_verify_with_status(claim, evidence_results)
+    return res
 
 
 def transcribe_audio(audio_bytes, filename="voice_claim.wav", language=None):
