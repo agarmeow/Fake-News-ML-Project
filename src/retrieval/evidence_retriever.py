@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import json
 import hashlib
@@ -161,31 +162,39 @@ def get_source_quality(url):
 # Web search
 # ============================================================
 
-def search_web(query, max_results=5):
-    """Search the web and return candidate sources."""
-    t0 = time.time()
-    query = str(query)[:200]
+def _simplify_query(query):
+    # remove possessive 's or ’s
+    q = re.sub(r"['’]s\b", "", query, flags=re.IGNORECASE)
+    # strip punctuation and quotes
+    q = re.sub(r'["\'.,?!;:()[\]{}]', ' ', q)
+    # collapse whitespace
+    q = re.sub(r'\s+', ' ', q).strip()
+    return q
 
-    cache_key = f"{query.strip().lower()}_{max_results}"
+
+def _execute_search_query(q_str, max_results=5):
+    cache_key = f"{q_str.strip().lower()}_{max_results}"
     cache_file = _get_cache_path(SEARCH_CACHE_DIR, cache_key, "json")
     cached_data = _load_cache(cache_file)
     if not cached_data:
-        legacy_file = _get_cache_path(SEARCH_CACHE_DIR, f"{query}_{max_results}", "json")
+        legacy_file = _get_cache_path(SEARCH_CACHE_DIR, f"{q_str}_{max_results}", "json")
         cached_data = _load_cache(legacy_file)
 
     if cached_data:
-        CACHE_STATS["search_hit"] += 1
-        if os.environ.get("FC_TIMING") == "1":
-            print(f"[CACHE HIT] search_web: {query[:50]}")
         try:
-            TIMING_STATS["search_web"] += (time.time() - t0)
-            return json.loads(cached_data)
+            loaded = json.loads(cached_data)
+            # treat existing empty cache entries as misses
+            if isinstance(loaded, list) and len(loaded) > 0:
+                CACHE_STATS["search_hit"] += 1
+                if os.environ.get("FC_TIMING") == "1":
+                    print(f"[CACHE HIT] search_web: {q_str[:50]}")
+                return loaded
         except Exception:
             pass
-    else:
-        CACHE_STATS["search_miss"] += 1
-        if os.environ.get("FC_TIMING") == "1":
-            print(f"[CACHE MISS] search_web: {query[:50]}")
+
+    CACHE_STATS["search_miss"] += 1
+    if os.environ.get("FC_TIMING") == "1":
+        print(f"[CACHE MISS] search_web: {q_str[:50]}")
 
     url = "https://html.duckduckgo.com/html/"
     headers = {
@@ -201,7 +210,7 @@ def search_web(query, max_results=5):
         try:
             response = requests.post(
                 url,
-                data={"q": query},
+                data={"q": q_str},
                 headers=headers,
                 timeout=15,
                 verify=False
@@ -237,8 +246,32 @@ def search_web(query, max_results=5):
         if attempt < max_retries:
             time.sleep(1.0 * (attempt + 1))
 
-    if results:
+    # never write an empty or failed search result to cache/search
+    if results and len(results) > 0:
         _save_cache(cache_file, json.dumps(results))
+
+    return results
+
+
+def search_web(query, max_results=5):
+    """Search the web and return candidate sources."""
+    t0 = time.time()
+    query = str(query)[:200]
+
+    results = _execute_search_query(query, max_results=max_results)
+
+    # (2) if search_web returns 0 results, retry once with a simplified query
+    if not results:
+        simplified = _simplify_query(query)
+        if simplified and simplified.lower() != query.strip().lower():
+            if os.environ.get("FC_TIMING") == "1":
+                print(f"[RETRY SIMPLIFIED] {query[:40]} -> {simplified[:40]}")
+            retry_results = _execute_search_query(simplified, max_results=max_results)
+            if retry_results:
+                # Add result["retrieval_retry"]=True only when used
+                for r in retry_results:
+                    r["retrieval_retry"] = True
+                results = retry_results
 
     TIMING_STATS["search_web"] += (time.time() - t0)
     return results
@@ -331,7 +364,7 @@ def retrieve_evidence(
         score, quality = get_source_quality(result["url"])
         page_text = fetch_page_text(result["url"])
         final_text = page_text.strip() if page_text and page_text.strip() else result.get("snippet", "")
-        return {
+        item = {
             "title": result["title"],
             "url": result["url"],
             "snippet": result["snippet"],
@@ -339,6 +372,9 @@ def retrieve_evidence(
             "source_quality": quality,
             "source_quality_score": score
         }
+        if result.get("retrieval_retry"):
+            item["retrieval_retry"] = True
+        return item
 
     t_fetch = time.time()
     with ThreadPoolExecutor(max_workers=5) as executor:
