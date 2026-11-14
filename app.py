@@ -268,6 +268,12 @@ if analyze:
                 f"contradiction score {result['contradiction_score']:.2f}"
             )
 
+            if result.get("llm_status") and result["llm_status"] not in ("ok", "no_key"):
+                st.caption(
+                    f"LLM arbitration was unavailable for this run (status: {result['llm_status']}); "
+                    f"the verdict comes from the rule-based pipeline only."
+                )
+
             if result.get("llm_reasoning"):
                 if result.get("verdict_source") == "llm_fallback":
                     st.info(
