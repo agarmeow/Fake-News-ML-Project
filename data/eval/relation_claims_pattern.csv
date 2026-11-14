@@ -1,0 +1,13 @@
+id,claim,label,category,language,note
+R01p,Australia's capital is Canberra.,True,relation_pattern,en,
+R02p,Canada's capital is Ottawa.,True,relation_pattern,en,
+R03p,Turkey's capital is Ankara.,True,relation_pattern,en,
+R04p,Nigeria's capital is Abuja.,True,relation_pattern,en,
+R05p,Rajasthan's capital is Jaipur.,True,relation_pattern,en,
+R06p,Kerala's capital is Thiruvananthapuram.,True,relation_pattern,en,
+R07p,Brazil's capital is Rio de Janeiro.,False,relation_pattern,en,
+R08p,Switzerland's capital is Zurich.,False,relation_pattern,en,
+R09p,Canada's capital is Toronto.,False,relation_pattern,en,
+R10p,Nigeria's capital is Lagos.,False,relation_pattern,en,
+R11p,Karnataka's capital is Mysuru.,False,relation_pattern,en,
+R12p,Tamil Nadu's capital is Coimbatore.,False,relation_pattern,en,

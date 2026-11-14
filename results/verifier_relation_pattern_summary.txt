@@ -1,0 +1,9 @@
+Pattern Relation Evaluation Summary (N=12)
+--------------------------------------------------
+C2: Accuracy = 0/12 (0.0%), UNVERIFIABLE = 12/12 (100.0%)
+C3: Accuracy = 1/12 (8.3%), UNVERIFIABLE = 11/12 (91.7%)
+C4: Accuracy = 7/12 (58.3%), UNVERIFIABLE = 5/12 (41.7%)
+
+Rows where C3 != C2:
+  id  gold   c2_verdict c3_verdict                        claim_n
+R11p FALSE UNVERIFIABLE      FALSE Karnataka's capital is Mysuru.

@@ -1,0 +1,13 @@
+id,category,language,gold,claim_n,normalizer_source,c2_verdict,c2_confidence,c3_verdict,c3_confidence,c4_verdict,c4_confidence,c4_verdict_source,c4_conflict,c4_seconds
+R01p,relation_pattern,en,TRUE,Australia's capital is Canberra.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,13.14
+R02p,relation_pattern,en,TRUE,Canada's capital is Ottawa.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,TRUE,0.85,llm_fallback,False,4.25
+R03p,relation_pattern,en,TRUE,Turkey's capital is Ankara.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,rule_based,False,3.86
+R04p,relation_pattern,en,TRUE,Nigeria's capital is Abuja.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,rule_based,False,3.86
+R05p,relation_pattern,en,TRUE,Rajasthan's capital is Jaipur.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,rule_based,False,3.93
+R06p,relation_pattern,en,TRUE,Kerala's capital is Thiruvananthapuram.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,rule_based,False,3.9
+R07p,relation_pattern,en,FALSE,Brazil's capital is Rio de Janeiro.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,rule_based,False,3.83
+R08p,relation_pattern,en,FALSE,Switzerland's capital is Zurich.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,18.26
+R09p,relation_pattern,en,FALSE,Canada's capital is Toronto.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,3.91
+R10p,relation_pattern,en,FALSE,Nigeria's capital is Lagos.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,4.79
+R11p,relation_pattern,en,FALSE,Karnataka's capital is Mysuru.,groq,UNVERIFIABLE,0.0,FALSE,0.30494202121251845,FALSE,0.7434340808732343,rule_based,False,4.7
+R12p,relation_pattern,en,FALSE,Tamil Nadu's capital is Coimbatore.,groq,UNVERIFIABLE,0.0,UNVERIFIABLE,0.0,FALSE,0.85,llm_fallback,False,3.83
