@@ -1,0 +1,7 @@
+id,claim_n,gold,c4_verdict,c4_verdict_source,top_evidence_title_1,top_evidence_url_1,top_evidence_title_2,top_evidence_url_2,c0_verdict
+F07,India gained independence in 1950.,FALSE,TRUE,rule_based,Indian independence movement - Wikipedia,https://en.wikipedia.org/wiki/Indian_independence_movement,History of India (1947-present) - Wikipedia,https://en.wikipedia.org/wiki/History_of_India_(1947%E2%80%93present),FALSE
+F11,Vaccines cause autism.,FALSE,TRUE,rule_based,Vaccines and autism - Wikipedia,https://en.wikipedia.org/wiki/Vaccines_and_autism,Autism and Vaccines | Vaccine Safety | CDC,https://www.cdc.gov/vaccine-safety/about/autism.html,FALSE
+U10,Engineer Rohit Valunjkar patented a self-folding bicycle in Thane in 2018.,UNVERIFIABLE,FALSE,llm_fallback,Google Patents,https://patents.google.com/?scholar,Espacenet - patent search,https://www.espacenet.com/,UNVERIFIABLE
+N01,Europe's Hera spacecraft has begun close inspections of an asteroid rammed by NASA in a 2022 planetary defense test.,TRUE,FALSE,rule_based,,,,,TRUE
+M01,The Taj Mahal is located in Agra.,TRUE,UNVERIFIABLE,rule_based,,,,,TRUE
+M05,The capital of India is Mumbai.,FALSE,UNVERIFIABLE,rule_based,,,,,FALSE
