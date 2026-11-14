@@ -234,9 +234,6 @@ if analyze:
 
         if result:
 
-            if result.get("conflict"):
-                st.warning("Rule-based pipeline and LLM disagree - review the evidence below")
-
             verdict = result["verdict"]
             conf_val = result.get("confidence", 0.0)
             if conf_val < 0.30:
@@ -246,7 +243,12 @@ if analyze:
             else:
                 strength_label = "strong"
 
-            if verdict == "TRUE":
+            if result.get("conflict"):
+                st.warning(
+                    f"CONFLICTING SIGNALS - review the evidence\n\n"
+                    f"Rule-based pipeline: {verdict}; LLM reading the evidence: {result.get('llm_verdict')}"
+                )
+            elif verdict == "TRUE":
                 if strength_label == "weak evidence":
                     st.warning(f"**{verdict}** -- {strength_label}")
                 else:
