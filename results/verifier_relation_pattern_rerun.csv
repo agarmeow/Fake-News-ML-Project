@@ -1,0 +1,6 @@
+id,gold,claim_n,before_c2,after_c2,before_c3,after_c3,before_c4,after_c4,after_c4_source,after_c4_confidence,after_c4_conflict,after_c4_evidence_count
+R03p,TRUE,Turkey's capital is Ankara.,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,TRUE,llm_fallback,0.85,False,10
+R04p,TRUE,Nigeria's capital is Abuja.,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,TRUE,llm_fallback,0.85,False,10
+R05p,TRUE,Rajasthan's capital is Jaipur.,UNVERIFIABLE,TRUE,UNVERIFIABLE,TRUE,UNVERIFIABLE,TRUE,rule_based,0.3838078822525539,False,5
+R06p,TRUE,Kerala's capital is Thiruvananthapuram.,UNVERIFIABLE,TRUE,UNVERIFIABLE,TRUE,UNVERIFIABLE,TRUE,rule_based,0.3657274257588836,False,5
+R07p,FALSE,Brazil's capital is Rio de Janeiro.,UNVERIFIABLE,UNVERIFIABLE,UNVERIFIABLE,TRUE,UNVERIFIABLE,TRUE,rule_based,0.35014012638942105,True,10
