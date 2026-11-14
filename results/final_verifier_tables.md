@@ -4,13 +4,13 @@
 
 | Configuration | Accuracy | 95% Wilson CI | Macro-F1 | % UNVERIFIABLE (Abstentions) |
 |---|---|---|---|---|
-| C0 (Direct Search + Per-Source NLI) | 27/37 (73.0%) | [57.0%, 84.6%] | 0.7374 | 27.0% (10/37) |
-| C1 (Source Tiering + Scraping) | 21/37 (56.8%) | [40.9%, 71.3%] | 0.5640 | 29.7% (11/37) |
-| C2 (NLI + Relation/Entity Consistency) | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
-| C3 (C2 + Competing-Fact Search) | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
-| C4 (as run) | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8378 | 35.1% (13/37) |
-| **C4 (after reliability rerun)** | **33/37 (89.2%)** | **[75.3%, 95.7%]** | **0.8942** | **29.7% (11/37)** |
-| C5 (LLM Direct Evidence Reading) | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8394 | 40.5% (15/37) |
+| C0 (Closed-book LLM, no retrieval) | 27/37 (73.0%) | [57.0%, 84.6%] | 0.7374 | 27.0% (10/37) |
+| C1 (NLI only) | 21/37 (56.8%) | [40.9%, 71.3%] | 0.5640 | 29.7% (11/37) |
+| C2 (NLI + consistency checker) | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
+| C3 (C2 + competing-fact retrieval) | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
+| C4 (as run: full system) | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8378 | 35.1% (13/37) |
+| **C4 (after reliability rerun: full system)** | **33/37 (89.2%)** | **[75.3%, 95.7%]** | **0.8942** | **29.7% (11/37)** |
+| C5 (LLM reading the same retrieved evidence) | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8394 | 40.5% (15/37) |
 
 ---
 
