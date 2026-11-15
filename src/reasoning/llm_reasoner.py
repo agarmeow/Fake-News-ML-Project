@@ -13,6 +13,7 @@ TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
 VALID_VERDICTS = {"TRUE", "FALSE", "UNVERIFIABLE"}
 GROQ_STATS = {"attempted": 0, "failed": 0}
+LAST_CALL_STATS = {"attempts": 0}
 
 
 def _build_evidence_block(evidence_results, max_items=5, max_chars=500):
@@ -100,8 +101,10 @@ def llm_verify_with_status(claim, evidence_results):
     backoffs = [2, 4, 8, 16]
     last_status = "error"
     active_model = primary_model
+    LAST_CALL_STATS["attempts"] = 0
 
     for attempt in range(4):
+        LAST_CALL_STATS["attempts"] = attempt + 1
         resp, code, retry_after, exc = _call_groq_chat(primary_model, api_key, messages, timeout=30)
         if resp is not None and code == 200:
             try:
@@ -147,6 +150,7 @@ def llm_verify_with_status(claim, evidence_results):
 
     # Try fallback model if configured
     if fallback_model and fallback_model.strip():
+        LAST_CALL_STATS["attempts"] = 5
         active_model = fallback_model.strip()
         time.sleep(2)  # short safety pause before fallback attempt
         resp, code, retry_after, exc = _call_groq_chat(active_model, api_key, messages, timeout=30)
