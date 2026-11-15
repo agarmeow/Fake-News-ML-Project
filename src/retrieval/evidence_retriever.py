@@ -2,6 +2,7 @@ import os
 import re
 import time
 import json
+import random
 import hashlib
 import requests
 import urllib3
@@ -200,6 +201,178 @@ def _simplify_query(query):
     return q
 
 
+def _search_ddg_html(q_str, max_results=5):
+    url = "https://html.duckduckgo.com/html/"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+        )
+    }
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                url,
+                data={"q": q_str},
+                headers=headers,
+                timeout=(5, 15),
+                verify=False
+            )
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                results = []
+                for result in soup.select(".result")[:max_results]:
+                    link_element = result.select_one(".result__a")
+                    title_element = result.select_one(".result__title")
+                    snippet_element = result.select_one(".result__snippet")
+
+                    if not link_element:
+                        continue
+
+                    results.append({
+                        "title": (
+                            title_element.get_text(" ", strip=True)
+                            if title_element else ""
+                        ),
+                        "url": link_element.get("href", ""),
+                        "snippet": (
+                            snippet_element.get_text(" ", strip=True)
+                            if snippet_element else ""
+                        )
+                    })
+
+                if results:
+                    return results
+        except Exception as e:
+            if os.environ.get("FC_TIMING") == "1":
+                print(f"ddg_html attempt {attempt + 1} failed: {e}")
+
+        if attempt < 1:
+            time.sleep(random.uniform(0.5, 1.5))
+    return []
+
+
+def _search_ddg_lite(q_str, max_results=5):
+    url = "https://lite.duckduckgo.com/lite/"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+        )
+    }
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                url,
+                data={"q": q_str},
+                headers=headers,
+                timeout=(5, 15),
+                verify=False
+            )
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                results = []
+                links = soup.select(".result-link")
+                snippets = soup.select(".result-snippet")
+                for i in range(min(len(links), max_results)):
+                    link_el = links[i]
+                    href = link_el.get("href", "")
+                    title = link_el.get_text(" ", strip=True)
+                    snip = snippets[i].get_text(" ", strip=True) if i < len(snippets) else ""
+                    if href:
+                        results.append({
+                            "title": title,
+                            "url": href,
+                            "snippet": snip
+                        })
+                if results:
+                    return results
+        except Exception as e:
+            if os.environ.get("FC_TIMING") == "1":
+                print(f"ddg_lite attempt {attempt + 1} failed: {e}")
+
+        if attempt < 1:
+            time.sleep(random.uniform(0.5, 1.5))
+    return []
+
+
+def _search_wikipedia(q_str, max_results=5):
+    api_url = "https://en.wikipedia.org/w/api.php"
+    headers = {"User-Agent": "FakeNewsFactChecker/1.0 (contact@example.org)"}
+    params = {
+        "action": "query",
+        "list": "search",
+        "srsearch": q_str,
+        "format": "json",
+        "srlimit": max_results
+    }
+    for attempt in range(2):
+        try:
+            response = requests.get(
+                api_url,
+                params=params,
+                headers=headers,
+                timeout=(5, 15),
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                search_items = data.get("query", {}).get("search", [])
+                if not search_items:
+                    return []
+
+                pageids = [str(item["pageid"]) for item in search_items]
+                extracts = {}
+                if pageids:
+                    time.sleep(random.uniform(0.5, 1.5))
+                    try:
+                        ext_params = {
+                            "action": "query",
+                            "prop": "extracts",
+                            "pageids": "|".join(pageids),
+                            "exintro": True,
+                            "explaintext": True,
+                            "format": "json"
+                        }
+                        ext_resp = requests.get(
+                            api_url,
+                            params=ext_params,
+                            headers=headers,
+                            timeout=(5, 15),
+                            verify=False
+                        )
+                        if ext_resp.status_code == 200:
+                            pages = ext_resp.json().get("query", {}).get("pages", {})
+                            for pid, pdata in pages.items():
+                                extracts[pid] = pdata.get("extract", "")
+                    except Exception:
+                        pass
+
+                results = []
+                for item in search_items:
+                    pid = str(item["pageid"])
+                    title = item["title"]
+                    snip = extracts.get(pid, "")
+                    if not snip:
+                        raw_snip = item.get("snippet", "")
+                        snip = BeautifulSoup(raw_snip, "html.parser").get_text(strip=True)
+                    url = "https://en.wikipedia.org/wiki/" + title.replace(" ", "_")
+                    results.append({
+                        "title": f"{title} - Wikipedia",
+                        "url": url,
+                        "snippet": snip[:1000]
+                    })
+                if results:
+                    return results
+        except Exception as e:
+            if os.environ.get("FC_TIMING") == "1":
+                print(f"wikipedia attempt {attempt + 1} failed: {e}")
+
+        if attempt < 1:
+            time.sleep(random.uniform(0.5, 1.5))
+    return []
+
+
 def _execute_search_query(q_str, max_results=5):
     cache_key = f"{q_str.strip().lower()}_{max_results}"
     cache_file = _get_cache_path(SEARCH_CACHE_DIR, cache_key, "json")
@@ -234,63 +407,32 @@ def _execute_search_query(q_str, max_results=5):
         RETRIEVAL_METADATA["retrieval_source"] = "cache_miss"
         return []
 
-    url = "https://html.duckduckgo.com/html/"
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
-        )
-    }
-
-    results = []
-    max_retries = 2
-    for attempt in range(max_retries + 1):
-        try:
-            response = requests.post(
-                url,
-                data={"q": q_str},
-                headers=headers,
-                timeout=15,
-                verify=False
-            )
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, "html.parser")
-                results = []
-                for result in soup.select(".result")[:max_results]:
-                    link_element = result.select_one(".result__a")
-                    title_element = result.select_one(".result__title")
-                    snippet_element = result.select_one(".result__snippet")
-
-                    if not link_element:
-                        continue
-
-                    results.append({
-                        "title": (
-                            title_element.get_text(" ", strip=True)
-                            if title_element else ""
-                        ),
-                        "url": link_element.get("href", ""),
-                        "snippet": (
-                            snippet_element.get_text(" ", strip=True)
-                            if snippet_element else ""
-                        )
-                    })
-
-                if results:
-                    break
-        except Exception as e:
-            print(f"search_web attempt {attempt + 1} failed: {e}")
-
-        if attempt < max_retries:
-            time.sleep(1.0 * (attempt + 1))
-
-    # never write an empty or failed search result to cache/search
+    # 1. Primary: html.duckduckgo.com
+    results = _search_ddg_html(q_str, max_results=max_results)
     if results and len(results) > 0:
         RETRIEVAL_METADATA["retrieval_source"] = "ddg_html"
         _save_cache(cache_file, json.dumps(results))
         return results
 
-    # Stale-if-error: if live search fails or returns 0 results and a stale cache entry exists, use it
+    time.sleep(random.uniform(0.5, 1.5))
+
+    # 2. Fallback 1: lite.duckduckgo.com
+    results = _search_ddg_lite(q_str, max_results=max_results)
+    if results and len(results) > 0:
+        RETRIEVAL_METADATA["retrieval_source"] = "ddg_lite"
+        _save_cache(cache_file, json.dumps(results))
+        return results
+
+    time.sleep(random.uniform(0.5, 1.5))
+
+    # 3. Fallback 2: Wikipedia API
+    results = _search_wikipedia(q_str, max_results=max_results)
+    if results and len(results) > 0:
+        RETRIEVAL_METADATA["retrieval_source"] = "wikipedia"
+        _save_cache(cache_file, json.dumps(results))
+        return results
+
+    # 4. Stale-if-error: if live search fails or returns 0 results and a stale cache entry exists, use it
     stale_cache = _load_cache(cache_file, allow_stale=True)
     if not stale_cache:
         legacy_file = _get_cache_path(SEARCH_CACHE_DIR, f"{q_str}_{max_results}", "json")
@@ -310,7 +452,7 @@ def _execute_search_query(q_str, max_results=5):
             pass
 
     RETRIEVAL_METADATA["retrieval_source"] = "cache_miss"
-    return results
+    return []
 
 
 def search_web(query, max_results=5):
