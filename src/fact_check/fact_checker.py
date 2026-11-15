@@ -20,7 +20,9 @@ from retrieval.evidence_retriever import (
     retrieve_evidence,
     CACHE_STATS,
     TIMING_STATS as RETRIEVER_TIMINGS,
-    reset_stats as reset_retriever_stats
+    reset_stats as reset_retriever_stats,
+    get_retrieval_metadata,
+    reset_retrieval_metadata
 )
 from retrieval.semantic_ranker import semantic_rank_evidence
 
@@ -357,6 +359,7 @@ def fact_check(claim):
     for k in STAGE_TIMINGS:
         STAGE_TIMINGS[k] = 0.0
     reset_retriever_stats()
+    reset_retrieval_metadata()
 
     print("\n" + "=" * 80)
     print("FACT-CHECKING CLAIM")
@@ -371,9 +374,28 @@ def fact_check(claim):
 
     evidence = retrieve_evidence(claim, max_results=5)
 
+    meta = get_retrieval_metadata()
+    retrieval_source = meta.get("retrieval_source", "cache")
+    stale_cache = meta.get("stale_cache", False)
+
     if not evidence:
         print("No evidence found.")
-        return
+        return {
+            "claim": claim,
+            "verdict": "UNVERIFIABLE",
+            "confidence": 0.0,
+            "support_score": 0.0,
+            "contradiction_score": 0.0,
+            "evidence": [],
+            "llm_reasoning": None,
+            "verdict_source": "rule_based",
+            "llm_status": "no_key",
+            "llm_model": None,
+            "retrieval_source": retrieval_source,
+            "stale_cache": stale_cache,
+            "timings": dict(STAGE_TIMINGS),
+            "cache_stats": dict(CACHE_STATS),
+        }
 
     print(f"Retrieved {len(evidence)} sources.")
 
@@ -399,7 +421,22 @@ def fact_check(claim):
 
     if not results:
         print("No usable evidence passages found.")
-        return
+        return {
+            "claim": claim,
+            "verdict": "UNVERIFIABLE",
+            "confidence": 0.0,
+            "support_score": 0.0,
+            "contradiction_score": 0.0,
+            "evidence": [],
+            "llm_reasoning": None,
+            "verdict_source": "rule_based",
+            "llm_status": "no_key",
+            "llm_model": None,
+            "retrieval_source": retrieval_source,
+            "stale_cache": stale_cache,
+            "timings": dict(STAGE_TIMINGS),
+            "cache_stats": dict(CACHE_STATS),
+        }
 
     (
         verdict,
@@ -562,6 +599,12 @@ def fact_check(claim):
         print(f"  {'cache_stats':<20}: {CACHE_STATS}")
         print("=" * 50)
 
+    latest_meta = get_retrieval_metadata()
+    if latest_meta.get("stale_cache"):
+        stale_cache = True
+    if retrieval_source == "cache" and latest_meta.get("retrieval_source") != "cache":
+        retrieval_source = latest_meta.get("retrieval_source")
+
     ret = {
         "claim": claim,
         "verdict": verdict,
@@ -573,6 +616,8 @@ def fact_check(claim):
         "verdict_source": verdict_source,
         "llm_status": llm_status,
         "llm_model": llm_model,
+        "retrieval_source": retrieval_source,
+        "stale_cache": stale_cache,
         "timings": dict(STAGE_TIMINGS),
         "cache_stats": dict(CACHE_STATS),
     }

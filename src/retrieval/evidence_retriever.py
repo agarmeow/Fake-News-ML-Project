@@ -20,7 +20,6 @@ CACHE_DIR = os.path.abspath(
 )
 SEARCH_CACHE_DIR = os.path.join(CACHE_DIR, "search")
 PAGES_CACHE_DIR = os.path.join(CACHE_DIR, "pages")
-CACHE_TTL = 24 * 3600  # 24 hours
 
 CACHE_STATS = {
     "search_hit": 0,
@@ -34,6 +33,11 @@ TIMING_STATS = {
     "page_fetch": 0.0,
 }
 
+RETRIEVAL_METADATA = {
+    "retrieval_source": "cache",
+    "stale_cache": False,
+}
+
 
 def reset_stats():
     CACHE_STATS["search_hit"] = 0
@@ -44,8 +48,29 @@ def reset_stats():
     TIMING_STATS["page_fetch"] = 0.0
 
 
+def reset_retrieval_metadata():
+    RETRIEVAL_METADATA["retrieval_source"] = "cache"
+    RETRIEVAL_METADATA["stale_cache"] = False
+
+
+def get_retrieval_metadata():
+    return dict(RETRIEVAL_METADATA)
+
+
+def _get_cache_ttl():
+    try:
+        hours = float(os.environ.get("CACHE_TTL_HOURS", "720"))
+        return hours * 3600.0
+    except Exception:
+        return 720.0 * 3600.0
+
+
 def _is_cache_enabled():
     return os.environ.get("CACHE_DISABLE") != "1"
+
+
+def _is_cache_only():
+    return os.environ.get("CACHE_ONLY") == "1"
 
 
 def _get_cache_path(directory, key, ext):
@@ -54,17 +79,20 @@ def _get_cache_path(directory, key, ext):
     return os.path.join(directory, f"{h}.{ext}")
 
 
-def _load_cache(file_path):
+def _load_cache(file_path, allow_stale=False):
     if not _is_cache_enabled():
         return None
     if os.path.exists(file_path):
-        mtime = os.path.getmtime(file_path)
-        if time.time() - mtime < CACHE_TTL:
-            try:
+        try:
+            mtime = os.path.getmtime(file_path)
+            is_fresh = (time.time() - mtime) < _get_cache_ttl()
+            if is_fresh or allow_stale or _is_cache_only():
                 with open(file_path, "r", encoding="utf-8") as f:
-                    return f.read()
-            except Exception:
-                return None
+                    content = f.read()
+                    is_stale = not is_fresh
+                    return content, is_stale
+        except Exception:
+            return None
     return None
 
 
@@ -175,19 +203,25 @@ def _simplify_query(query):
 def _execute_search_query(q_str, max_results=5):
     cache_key = f"{q_str.strip().lower()}_{max_results}"
     cache_file = _get_cache_path(SEARCH_CACHE_DIR, cache_key, "json")
-    cached_data = _load_cache(cache_file)
-    if not cached_data:
+    loaded_cache = _load_cache(cache_file, allow_stale=False)
+    if not loaded_cache:
         legacy_file = _get_cache_path(SEARCH_CACHE_DIR, f"{q_str}_{max_results}", "json")
-        cached_data = _load_cache(legacy_file)
+        loaded_cache = _load_cache(legacy_file, allow_stale=False)
 
-    if cached_data:
+    if loaded_cache:
+        cached_data, is_stale = loaded_cache
         try:
             loaded = json.loads(cached_data)
             # treat existing empty cache entries as misses
             if isinstance(loaded, list) and len(loaded) > 0:
                 CACHE_STATS["search_hit"] += 1
+                if is_stale:
+                    RETRIEVAL_METADATA["stale_cache"] = True
+                    RETRIEVAL_METADATA["retrieval_source"] = "stale_cache"
+                else:
+                    RETRIEVAL_METADATA["retrieval_source"] = "cache"
                 if os.environ.get("FC_TIMING") == "1":
-                    print(f"[CACHE HIT] search_web: {q_str[:50]}")
+                    print(f"[{'STALE ' if is_stale else ''}CACHE HIT] search_web: {q_str[:50]}")
                 return loaded
         except Exception:
             pass
@@ -195,6 +229,10 @@ def _execute_search_query(q_str, max_results=5):
     CACHE_STATS["search_miss"] += 1
     if os.environ.get("FC_TIMING") == "1":
         print(f"[CACHE MISS] search_web: {q_str[:50]}")
+
+    if _is_cache_only():
+        RETRIEVAL_METADATA["retrieval_source"] = "cache_miss"
+        return []
 
     url = "https://html.duckduckgo.com/html/"
     headers = {
@@ -248,8 +286,30 @@ def _execute_search_query(q_str, max_results=5):
 
     # never write an empty or failed search result to cache/search
     if results and len(results) > 0:
+        RETRIEVAL_METADATA["retrieval_source"] = "ddg_html"
         _save_cache(cache_file, json.dumps(results))
+        return results
 
+    # Stale-if-error: if live search fails or returns 0 results and a stale cache entry exists, use it
+    stale_cache = _load_cache(cache_file, allow_stale=True)
+    if not stale_cache:
+        legacy_file = _get_cache_path(SEARCH_CACHE_DIR, f"{q_str}_{max_results}", "json")
+        stale_cache = _load_cache(legacy_file, allow_stale=True)
+
+    if stale_cache:
+        cached_data, _ = stale_cache
+        try:
+            loaded = json.loads(cached_data)
+            if isinstance(loaded, list) and len(loaded) > 0:
+                RETRIEVAL_METADATA["stale_cache"] = True
+                RETRIEVAL_METADATA["retrieval_source"] = "stale_cache"
+                if os.environ.get("FC_TIMING") == "1":
+                    print(f"[STALE-IF-ERROR HIT] search_web: {q_str[:50]}")
+                return loaded
+        except Exception:
+            pass
+
+    RETRIEVAL_METADATA["retrieval_source"] = "cache_miss"
     return results
 
 
@@ -288,16 +348,23 @@ def fetch_page_text(url, max_chars=5000):
 
     url_clean = url.strip()
     cache_file = _get_cache_path(PAGES_CACHE_DIR, url_clean, "txt")
-    cached_text = _load_cache(cache_file)
-    if cached_text is not None:
-        CACHE_STATS["page_hit"] += 1
-        if os.environ.get("FC_TIMING") == "1":
-            print(f"[CACHE HIT] page: {url_clean[:50]}")
-        return cached_text[:max_chars]
+    loaded_cache = _load_cache(cache_file, allow_stale=False)
+    if loaded_cache:
+        cached_text, is_stale = loaded_cache
+        if cached_text.strip():
+            CACHE_STATS["page_hit"] += 1
+            if is_stale:
+                RETRIEVAL_METADATA["stale_cache"] = True
+            if os.environ.get("FC_TIMING") == "1":
+                print(f"[{'STALE ' if is_stale else ''}CACHE HIT] page: {url_clean[:50]}")
+            return cached_text[:max_chars]
 
     CACHE_STATS["page_miss"] += 1
     if os.environ.get("FC_TIMING") == "1":
         print(f"[CACHE MISS] page: {url_clean[:50]}")
+
+    if _is_cache_only():
+        return ""
 
     headers = {
         "User-Agent": (
@@ -337,7 +404,18 @@ def fetch_page_text(url, max_chars=5000):
 
     except Exception as e:
         print(f"Could not fetch page {url}: {e}")
-        return ""
+
+    # Stale-if-error for page fetch
+    stale_cache = _load_cache(cache_file, allow_stale=True)
+    if stale_cache:
+        cached_text, _ = stale_cache
+        if cached_text.strip():
+            RETRIEVAL_METADATA["stale_cache"] = True
+            if os.environ.get("FC_TIMING") == "1":
+                print(f"[STALE-IF-ERROR HIT] page: {url_clean[:50]}")
+            return cached_text[:max_chars]
+
+    return ""
 
 
 # ============================================================
