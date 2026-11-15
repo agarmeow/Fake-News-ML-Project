@@ -21,6 +21,7 @@ from fact_check.fact_checker import fact_check
 from multimodal_predict import predict
 from reasoning.llm_reasoner import transcribe_audio, describe_image
 from reasoning.claim_normalizer import normalize_claim
+from reasoning.type_view import get_type_view
 
 
 st.set_page_config(page_title="Fake-News Fact-Checker", layout="centered")
@@ -214,11 +215,7 @@ claim_text = st.text_area(
     height=100,
 )
 
-col_btn, col_chk = st.columns([1, 2])
-with col_btn:
-    analyze = st.button("Analyze")
-with col_chk:
-    analyze_type_anyway = st.checkbox("Analyze type anyway", value=False)
+analyze = st.button("Analyze")
 
 
 # ------------------------------------------------------------------
@@ -244,7 +241,7 @@ if analyze:
         with st.spinner("Verifying claim against evidence..."):
             result = fact_check(final_claim)
 
-        st.subheader("Final Verdict")
+        st.subheader("Evidence check")
 
         if not result or not result.get("evidence"):
             st.warning("No evidence could be retrieved (search may be unavailable). Try again in a minute or use a prepared demo claim.")
@@ -278,6 +275,13 @@ if analyze:
                     st.error(f"**{verdict}** -- {strength_label}")
             else:
                 st.warning(f"**{verdict}**")
+
+            st.caption(
+                "TRUE = reliable sources support this statement as written "
+                "(for a reported claim, that the report exists). FALSE = "
+                "sources contradict it. UNVERIFIABLE = not enough evidence. "
+                "This does not verify claims that a study or post makes."
+            )
 
             st.caption(
                 f"Confidence: {conf_val * 100:.1f}% ({strength_label}) | "
@@ -318,49 +322,54 @@ if analyze:
                     st.write(ev["url"])
                     st.markdown("---")
 
-            # ----------------------------------------------------------
-            # G5: Fake-type analysis block
-            # ----------------------------------------------------------
-            should_analyze_faketype = (
-                verdict == "FALSE"
-                or result.get("conflict") is True
-                or analyze_type_anyway
-            )
+        # ----------------------------------------------------------
+        # News type display
+        # ----------------------------------------------------------
+        st.subheader("News type")
+        lang = norm_typed.get("language")
+        type_view = get_type_view(final_claim, result, lang)
+        if type_view.get("error"):
+            st.caption(type_view["error"])
+        elif not type_view.get("shown"):
+            st.info("News type: supported for English only")
+        else:
+            lbl = type_view.get("label", "ordinary")
+            st.markdown(f"### `{lbl}`")
+            descriptions = {
+                "ordinary": "plain factual reporting",
+                "satire": "humorous fabricated news",
+                "clickbait": "sensational headline built to provoke clicks",
+                "misleading": "false or unsupported claim",
+            }
+            desc_text = descriptions.get(str(lbl).lower(), "")
+            if desc_text:
+                st.write(f"{lbl}: {desc_text}")
+            else:
+                st.write(str(lbl))
 
-            if should_analyze_faketype:
-                st.subheader("Fake-Type Analysis")
-                lang = norm_typed.get("language")
-                if not is_english(lang, final_claim):
-                    st.info("Fake-type analysis supports English only.")
-                else:
-                    with st.spinner("Analyzing fake-type category..."):
-                        pipeline_ver = os.getenv("FAKETYPE_PIPELINE", "v1").strip().lower()
-                        if pipeline_ver == "v2":
-                            from reasoning.faketype_pipeline import classify_type_v2 as classify_fn
-                        else:
-                            from reasoning.faketype_pipeline import classify_type as classify_fn
-                        try:
-                            pt_res = classify_fn(final_claim, verifier_fn=lambda _: result)
-                            pipe_label = pt_res["label"]
-                            source = pt_res["source"]
-                            trained_lbl = pt_res["trained_label"]
-                            trained_conf = pt_res["trained_conf"]
-                            llm_lbl = pt_res["llm_label"]
-                            llm_conf = pt_res["llm_conf"]
-                            uncertain = pt_res["uncertain"]
+            src = type_view.get("source", "")
+            src_map = {
+                "both": "both models",
+                "trained": "trained model",
+                "llm": "LLM",
+                "verifier": "verifier",
+                "verifier_override": "verifier",
+                "default": "verifier",
+            }
+            decided_by = src_map.get(src, src)
+            st.write(f"decided by: {decided_by}")
 
-                            st.markdown(f"**Pipeline Label:** `{pipe_label}` (Decided by: `{source}`)")
-                            if uncertain:
-                                st.warning("uncertain")
-
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.markdown(f"**Trained Model:** `{trained_lbl}` ({trained_conf * 100:.1f}%)")
-                            with col2:
-                                st.markdown(f"**Groq LLM:** `{llm_lbl}` ({llm_conf * 100:.1f}%)")
-
-                        except Exception as e:
-                            st.error(f"Fake-type analysis error: {e}")
+            with st.expander("Details"):
+                t_lbl = type_view.get("trained_label")
+                t_conf = type_view.get("trained_conf")
+                l_lbl = type_view.get("llm_label")
+                l_conf = type_view.get("llm_conf")
+                unc = type_view.get("uncertain")
+                t_conf_str = f"{t_conf * 100:.1f}%" if t_conf is not None else "N/A"
+                l_conf_str = f"{l_conf * 100:.1f}%" if l_conf is not None else "N/A"
+                st.write(f"Trained model: `{t_lbl}` ({t_conf_str})")
+                st.write(f"LLM: `{l_lbl}` ({l_conf_str})")
+                st.write(f"Uncertain: `{unc}`")
 
     else:
         st.info(
