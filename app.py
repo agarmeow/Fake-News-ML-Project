@@ -347,6 +347,11 @@ if analyze:
             else:
                 st.write(str(lbl))
 
+            if str(lbl).lower() == "satire":
+                st.info("Satire: a source containing this text may exist, but it is a joke, not a news fact. Read the Evidence check as 'this text exists', not 'this happened'.")
+            elif str(lbl).lower() == "clickbait":
+                st.caption("Clickbait: sensational wording. The Evidence check applies to the factual content of the sentence, not to the hook.")
+
             src = type_view.get("source", "")
             src_map = {
                 "both": "both models",
