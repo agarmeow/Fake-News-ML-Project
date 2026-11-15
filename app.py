@@ -232,7 +232,11 @@ if analyze:
 
         st.subheader("Final Verdict")
 
-        if result:
+        if not result or not result.get("evidence"):
+            st.warning("No evidence could be retrieved (search may be unavailable). Try again in a minute or use a prepared demo claim.")
+        else:
+            if result.get("stale_cache") is True:
+                st.caption("Using cached evidence from an earlier retrieval.")
 
             verdict = result["verdict"]
             conf_val = result.get("confidence", 0.0)
@@ -343,9 +347,6 @@ if analyze:
 
                         except Exception as e:
                             st.error(f"Fake-type analysis error: {e}")
-
-        else:
-            st.write("No evidence could be retrieved for this claim.")
 
     else:
         st.info(
