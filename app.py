@@ -80,6 +80,20 @@ def predict_faketype_muril(text):
     return label, confidence
 
 
+def is_english(lang, text):
+    l_clean = str(lang).strip().lower() if lang is not None else ""
+    if l_clean == "en" or l_clean.startswith("en") or l_clean == "english":
+        return True
+    if l_clean in ("", "unknown", "none"):
+        text_str = str(text) if text is not None else ""
+        alpha_chars = [c for c in text_str if c.isalpha()]
+        if not alpha_chars:
+            return False
+        ascii_alpha = [c for c in alpha_chars if "a" <= c.lower() <= "z"]
+        return (len(ascii_alpha) / len(alpha_chars)) >= 0.90
+    return False
+
+
 @st.cache_resource
 def preload_all_models():
     """Preload NLI, SentenceTransformer, and CLIP models once at app startup."""
@@ -315,8 +329,8 @@ if analyze:
 
             if should_analyze_faketype:
                 st.subheader("Fake-Type Analysis")
-                lang = str(norm_typed.get("language", "en")).strip().lower()
-                if lang != "en":
+                lang = norm_typed.get("language")
+                if not is_english(lang, final_claim):
                     st.info("Fake-type analysis supports English only.")
                 else:
                     with st.spinner("Analyzing fake-type category..."):
