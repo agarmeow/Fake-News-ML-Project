@@ -1,1 +1,26 @@
-python-dotenv
+# Note: PyTorch with CUDA support. For CPU or other CUDA versions, see https://pytorch.org/get-started/locally/
+# pip install torch==2.11.0+cu128 --index-url https://download.pytorch.org/whl/cu128
+#
+# Note: spaCy English pipeline model required for linguistic and entity features:
+# python -m spacy download en_core_web_sm
+
+beautifulsoup4==4.15.0
+easyocr==1.7.2
+httpx==0.28.1
+huggingface_hub==1.30.0
+matplotlib==3.11.1
+numpy==2.5.3
+pandas==3.0.5
+pillow==12.3.0
+pytesseract==0.3.13
+python-dotenv==1.2.4
+requests==2.34.2
+scikit-learn==1.9.0
+scipy==1.18.1
+sentence-transformers==6.0.1
+spacy==3.8.16
+streamlit==1.63.0
+torch==2.11.0+cu128
+tqdm==4.70.0
+transformers==5.16.1
+urllib3==2.7.0
