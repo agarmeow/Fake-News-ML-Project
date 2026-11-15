@@ -109,6 +109,23 @@ Model weights should be placed in the `models/` directory:
 
 ---
 
+## Demo & Offline Execution
+
+To run a reliable offline demo without external network dependencies:
+1. **Warm the cache** with network access enabled to ensure all demo passages and searches are stored locally:
+   ```bash
+   python scripts/warm_demo_cache.py
+   ```
+2. **Enable offline cache-only mode** (`CACHE_ONLY=1`) to prevent any live network requests and verify reproducible execution from disk:
+   ```bash
+   # Windows (PowerShell):
+   $env:CACHE_ONLY="1"; streamlit run app.py
+   # Linux / macOS:
+   CACHE_ONLY=1 streamlit run app.py
+   ```
+
+---
+
 ## Execution & Reproduction Commands
 
 ### 1. Interactive Web Interface
@@ -159,7 +176,7 @@ Fake-News-ML-Project/
 │   ├── fact_check/            # End-to-end fact checker and aggregation
 │   ├── verification/          # Relational consistency & entity checkers
 │   ├── reasoning/             # Normalizer and Groq LLM arbitration
-│   ├── retrieval/             # DuckDuckGo search and web scraper
+│   ├── retrieval/             # DuckDuckGo & Wikipedia search and scraping
 │   └── multimodal/            # CLIP vision-language and OCR handlers
 ├── scripts/                   # Evaluation, regression, and diagnostic scripts
 ├── data/                      # Evaluation benchmarks (git-ignored)
@@ -173,38 +190,41 @@ Fake-News-ML-Project/
 ## Key Experimental Results
 
 ### 1. Fact Verifier Ablation (REPORT Set, N=37)
-Evaluated across six configurations on `data/eval/claims.csv` (excluding calibration rows T01-T06, F01-F06; source: `results/final_verifier_tables.md`):
+Evaluated across six configurations on `data/eval/claims.csv` (excluding calibration rows T01-T06, F01-F06; source: `results/final_verifier_tables.md` and `results/verifier_rerun_c0_c5.csv`):
 
 | Configuration | Accuracy | 95% Wilson CI | Macro-F1 | % Abstentions |
 |---|---|---|---|---|
-| C0: Closed-book LLM (no retrieval) | 27/37 (73.0%) | [57.0%, 84.6%] | 0.7374 | 27.0% (10/37) |
+| C0: closed-book LLM | 27/37 (73.0%) | [57.0%, 84.6%] | 0.7374 | 27.0% (10/37) |
 | C1: NLI only | 21/37 (56.8%) | [40.9%, 71.3%] | 0.5640 | 29.7% (11/37) |
-| C2: NLI + Consistency checker | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
-| C3: C2 + Competing-fact search | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
-| C4 (as run): Full system | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8378 | 35.1% (13/37) |
-| **C4 (after reliability rerun): Full system** | **33/37 (89.2%)** | **[75.3%, 95.7%]** | **0.8942** | **29.7% (11/37)** |
-| C5: LLM reading retrieved evidence | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8394 | 40.5% (15/37) |
+| C2: NLI + consistency checker | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
+| C3: C2 + competing-fact pass | 20/37 (54.1%) | [38.4%, 69.0%] | 0.5036 | 70.3% (26/37) |
+| C4: full system (as run) | 31/37 (83.8%) | [68.9%, 92.3%] | 0.8378 | 35.1% (13/37) |
+| **C4: full system (after reliability rerun)** | **33/37 (89.2%)** | **[75.3%, 95.7%]** | **0.8942** | **29.7% (11/37)** |
+| **C5: LLM reading the same evidence (after reliability rerun)** | **34/37 (91.9%)** | **[78.7%, 97.2%]** | **0.9198** | **8.1% (3/37)** |
 
-- **Statistical Significance**: Paired sign test for C4 (rerun) vs. C1 (NLI-only) achieves $p = 0.0005$ (12 C4-only wins vs. 0 C1-only wins). C4 (rerun) vs. C0 yields $p = 0.1796$.
-- **High-Confidence Precision**: In the strong-evidence band (confidence $> 0.60$), C4 achieves 95.2% accuracy (20/21).
+- **Rule Layer vs. Direct LLM Reading**: Comparing C4 (after reliability rerun: 33/37) against C5 (after reliability rerun: 34/37), the paired sign test shows only C4 right = 2, only C5 right = 3, both right = 31, both wrong = 1 ($p = 1.0000$). The rule layer did not add measured accuracy over C5.
+- **Statistical Significance vs. Baseline**: C4 achieves significant gains over the pure NLI pipeline C1 ($p = 0.0005$, 12 C4-only wins vs. 0 C1-only wins), and outperforms closed-book C0 ($p = 0.1796$, 10 C4-only wins vs. 4 C0-only wins).
+- **Relation-Pattern Diagnostics (exploratory, post hoc)**: Diagnostic analysis on relation claim patterns (`results/verifier_relation_pattern.csv`, N=5) showed that structural failures stemmed from zero-evidence retrieval misses rather than relation logic errors; with retry-enabled retrieval (`results/verifier_relation_pattern_rerun.csv`), 4/5 resolved correctly.
 
-### 2. Fake-Type Classification (English Pooled Dev+Test, N=76)
-Evaluated across 4 classes (`ordinary`, `satire`, `clickbait`, `misleading`; source: `results/faketype_en_final.txt`):
+### 2. Fake-Type Classification
+Evaluated across 4 classes (`ordinary`, `satire`, `clickbait`, `misleading`) across Dev, Test, Holdout, and the Pooled 100-row benchmark (source: `results/faketype_en_dev.csv`, `results/faketype_en_test.csv`, `results/faketype_en_holdout.csv`):
 
-| Method | Accuracy | 95% Wilson CI | Macro-F1 |
-|---|---|---|---|
-| Trained-only RoBERTa | 57.89% (44/76) | [46.68%, 68.35%] | 0.5015 |
-| LLM-only (LLaMA-3.3-70B) | 76.32% (58/76) | [65.64%, 84.46%] | 0.7711 |
-| **Hybrid Pipeline** | **85.53% (65/76)** | **[75.91%, 91.72%]** | **0.8498** |
+| Split | $n$ | Trained-only RoBERTa | LLM-only (LLaMA-3.3-70B) | Hybrid Pipeline (v1) |
+|---|---|---|---|---|
+| Dev | 28 | 16/28 (57.1%) | 24/28 (85.7%) | 25/28 (89.3%) |
+| Test | 48 | 28/48 (58.3%) | 34/48 (70.8%) | 40/48 (83.3%) |
+| Holdout | 24 | 15/24 (62.5%) | 17/24 (70.8%) | 17/24 (70.8%) |
+| **Pooled Benchmark** | **100** | **59/100 (59.0%)**<br>[95% CI: 49.2%, 68.1%] | **75/100 (75.0%)**<br>[95% CI: 65.7%, 82.5%] | **82/100 (82.0%)**<br>[95% CI: 73.3%, 88.3%] |
 
 ---
 
 ## Known Limitations
 
-1. **External Search Engine Rate Limits**: Web retrieval depends on DuckDuckGo HTML endpoints, which may impose transient rate limits during unpaced batch queries if the local disk cache is disabled.
-2. **Temporal Reasoning for Historical Relations**: Entity/relation consistency matches static predicate tuples without time scoping; historical facts (e.g. past national capitals) may match as true under relational matching, requiring LLM arbitration to resolve temporal qualification.
-3. **Zero-Evidence Obscure Entities**: Obscure or synthetically invented claims with zero search results default to `UNVERIFIABLE`.
-4. **Cross-Lingual Relational Depth**: Detailed semantic relation extraction is optimized for English grammatical dependencies, while Hindi and Marathi rely primarily on MuRIL cross-lingual representations and translation-assisted NLI.
+1. **Live Search Fragility**: Upstream web search endpoints (HTML/Lite DuckDuckGo) can intermittently throttle requests or return 403s during rapid batch querying, necessitating fallback to Wikipedia and disk caching.
+2. **Tense Blindness in Relational Extraction**: The relational consistency checker parses static subject-predicate-object tuples without temporal scoping, leading to false support on historical facts that have changed over time (e.g., R07p regarding Rio de Janeiro as Brazil's capital, or F07 regarding India's independence year).
+3. **Weak NLI Contradiction Deciding Verdicts**: In cases with sparse evidence (e.g., N01 regarding the Hera spacecraft), a single weakly-scoring contradictory NLI passage can dominate if no countervailing support passages surpass thresholds.
+4. **Narrow Rule Phrasing**: Dependency parse extraction relies on fixed predicate and relation mapping vocabularies, abstaining when assertions use unmapped synonyms or complex passive structures.
+5. **No Cache-Based Reproducibility Beyond Stored Snapshot**: Full offline reproducibility is tied to the frozen disk cache snapshot recorded in **November 2026**; live web evolution may shift search ranking and passage snippets over time.
 
 ---
 
